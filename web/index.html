@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>regf-works</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        dark: { 800: '#1e1e2e', 900: '#11111b', 700: '#313244', 600: '#45475a' },
+        accent: { 500: '#89b4fa', 600: '#74c7ec', 400: '#b4befe' }
+      }
+    }
+  }
+}
+</script>
+<style>
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+.log-box { max-height: 300px; overflow-y: auto; }
+.log-box::-webkit-scrollbar { width: 6px; }
+.log-box::-webkit-scrollbar-track { background: #1e1e2e; }
+.log-box::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+.fade-in { animation: fadeIn 0.3s ease-in; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.btn-primary { @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200; }
+.btn-danger { @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200; }
+.input-field { @apply w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors; }
+.card { @apply bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg; }
+.tab-btn { @apply px-4 py-2 rounded-t-lg font-medium transition-colors duration-200 cursor-pointer; }
+.tab-btn.active { @apply bg-gray-800 text-blue-400 border-b-2 border-blue-400; }
+.tab-btn:not(.active) { @apply text-gray-400 hover:text-gray-200; }
+</style>
+</head>
+<body class="dark bg-gray-900 text-gray-100 min-h-screen">
+
+<!-- 登录页 -->
+<div id="login-page" class="min-h-screen flex items-center justify-center p-4">
+  <div class="card w-full max-w-sm fade-in">
+    <h1 class="text-2xl font-bold text-center mb-6 text-blue-400">regf-works</h1>
+    <div id="login-error" class="hidden mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm"></div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">用户名</label>
+        <input id="login-username" type="text" class="input-field" placeholder="admin" autocomplete="username">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">密码</label>
+        <input id="login-password" type="password" class="input-field" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+      <button id="login-btn" class="btn-primary w-full" onclick="doLogin()">登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="app-page" class="hidden min-h-screen">
+  <!-- Header -->
+  <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+    <h1 class="text-xl font-bold text-blue-400">regf-works</h1>
+    <div class="flex items-center gap-4">
+      <span id="user-display" class="text-sm text-gray-400"></span>
+      <button class="btn-danger text-sm py-1 px-3" onclick="doLogout()">退出</button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="px-6 pt-4 border-b border-gray-700 flex gap-1">
+    <button class="tab-btn active" data-tab="register" onclick="switchTab('register')">注册</button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">设置</button>
+  </div>
+
+  <!-- 注册面板 -->
+  <div id="tab-register" class="p-6 fade-in">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
+      <!-- Grok 注册 -->
+      <div class="card">
+        <h2 class="text-lg font-semibold mb-4 text-green-400">Grok 注册</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">代理 (可选)</label>
+            <input id="grok-proxy" type="text" class="input-field" placeholder="http://user:pass@host:port">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">数量</label>
+            <input id="grok-count" type="number" class="input-field" value="1" min="1" max="50">
+          </div>
+          <button id="grok-btn" class="btn-primary w-full" onclick="startRegister('grok')">开始注册</button>
+        </div>
+        <div id="grok-log" class="log-box mt-4 bg-gray-900 rounded-lg p-3 text-xs font-mono text-gray-300 hidden"></div>
+        <div id="grok-results" class="mt-4 space-y-2 hidden"></div>
+      </div>
+
+      <!-- Fireworks 注册 -->
+      <div class="card">
+        <h2 class="text-lg font-semibold mb-4 text-orange-400">Fireworks 注册</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">代理 (可选)</label>
+            <input id="fireworks-proxy" type="text" class="input-field" placeholder="http://user:pass@host:port">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">数量</label>
+            <input id="fireworks-count" type="number" class="input-field" value="1" min="1" max="50">
+          </div>
+          <button id="fireworks-btn" class="btn-primary w-full" onclick="startRegister('fireworks')">开始注册</button>
+        </div>
+        <div id="fireworks-log" class="log-box mt-4 bg-gray-900 rounded-lg p-3 text-xs font-mono text-gray-300 hidden"></div>
+        <div id="fireworks-results" class="mt-4 space-y-2 hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置面板 -->
+  <div id="tab-settings" class="p-6 hidden fade-in">
+    <div class="max-w-3xl space-y-6">
+      <!-- 邮箱设置 -->
+      <div class="card">
+        <h2 class="text-lg font-semibold mb-4 text-purple-400">邮箱配置</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Provider 优先级</label>
+            <input id="set-provider-priority" type="text" class="input-field" placeholder="ahem,yydsmail">
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h3 class="text-sm font-medium text-gray-300 mb-2">AHEM</h3>
+              <div class="space-y-2">
+                <input id="set-ahem-url" type="text" class="input-field" placeholder="AHEM Base URL">
+                <input id="set-ahem-domains" type="text" class="input-field" placeholder="域名 (逗号分隔)">
+              </div>
+            </div>
+            <div>
+              <h3 class="text-sm font-medium text-gray-300 mb-2">YYDS Mail</h3>
+              <div class="space-y-2">
+                <input id="set-yyds-url" type="text" class="input-field" placeholder="YYDS Base URL">
+                <input id="set-yyds-key" type="text" class="input-field" placeholder="API Key">
+              </div>
+            </div>
+          </div>
+          <button class="btn-primary" onclick="saveMailSettings()">保存邮箱配置</button>
+          <div id="mail-msg" class="text-sm hidden"></div>
+        </div>
+      </div>
+
+      <!-- 代理设置 -->
+      <div class="card">
+        <h2 class="text-lg font-semibold mb-4 text-yellow-400">代理配置</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">默认代理</label>
+            <input id="set-proxy-default" type="text" class="input-field" placeholder="http://user:pass@host:port">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">代理池 (每行一个)</label>
+            <textarea id="set-proxy-pool" class="input-field h-24 resize-y" placeholder="http://proxy1:port&#10;http://proxy2:port"></textarea>
+          </div>
+          <button class="btn-primary" onclick="saveProxySettings()">保存代理配置</button>
+          <div id="proxy-msg" class="text-sm hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === State ===
+let token = localStorage.getItem('token') || '';
+
+// === Init ===
+document.addEventListener('DOMContentLoaded', () => {
+  if (token) {
+    checkAuth();
+  } else {
+    showLogin();
+  }
+  // Enter key on login
+  document.getElementById('login-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('login-username').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('login-password').focus();
+  });
+});
+
+// === API Helper ===
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+  if (body) opts.body = JSON.stringify(body);
+
+  const resp = await fetch(path, opts);
+  if (resp.status === 401) {
+    doLogout();
+    throw new Error('unauthorized');
+  }
+  return resp;
+}
+
+// === Auth ===
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+
+  if (!username || !password) {
+    errEl.textContent = '请输入用户名和密码';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+
+  try {
+    const resp = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      errEl.textContent = data.error || '登录失败';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    token = data.token;
+    localStorage.setItem('token', token);
+    showApp(username);
+  } catch (e) {
+    errEl.textContent = '网络错误';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '登录';
+  }
+}
+
+async function checkAuth() {
+  try {
+    const resp = await api('GET', '/api/auth/me');
+    if (resp.ok) {
+      const data = await resp.json();
+      showApp(data.username);
+    } else {
+      showLogin();
+    }
+  } catch {
+    showLogin();
+  }
+}
+
+function doLogout() {
+  token = '';
+  localStorage.removeItem('token');
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-page').classList.remove('hidden');
+  document.getElementById('app-page').classList.add('hidden');
+  document.getElementById('login-error').classList.add('hidden');
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+}
+
+function showApp(username) {
+  document.getElementById('login-page').classList.add('hidden');
+  document.getElementById('app-page').classList.remove('hidden');
+  document.getElementById('user-display').textContent = username || '';
+  loadSettings();
+}
+
+// === Tabs ===
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  document.getElementById('tab-register').classList.toggle('hidden', tab !== 'register');
+  document.getElementById('tab-settings').classList.toggle('hidden', tab !== 'settings');
+}
+
+// === Register ===
+function startRegister(type) {
+  const proxy = document.getElementById(type + '-proxy').value.trim();
+  const count = parseInt(document.getElementById(type + '-count').value) || 1;
+  const logEl = document.getElementById(type + '-log');
+  const resultsEl = document.getElementById(type + '-results');
+  const btn = document.getElementById(type + '-btn');
+
+  // Reset UI
+  logEl.innerHTML = '';
+  logEl.classList.remove('hidden');
+  resultsEl.innerHTML = '';
+  resultsEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = '注册中...';
+
+  const body = { count };
+  if (proxy) body.proxy = proxy;
+
+  // Use fetch + ReadableStream for SSE via POST
+  fetch('/api/' + type + '/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify(body)
+  }).then(response => {
+    if (response.status === 401) {
+      doLogout();
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          btn.disabled = false;
+          btn.textContent = '开始注册';
+          return;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        let currentEvent = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7);
+          } else if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (currentEvent === 'log') {
+              appendLog(logEl, data);
+            } else if (currentEvent === 'result') {
+              showResult(resultsEl, type, data);
+            }
+          }
+        }
+        read();
+      });
+    }
+    read();
+  }).catch(err => {
+    appendLog(logEl, '连接失败: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = '开始注册';
+  });
+}
+
+function appendLog(el, msg) {
+  const line = document.createElement('div');
+  line.textContent = msg;
+  line.className = 'py-0.5';
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function showResult(el, type, dataStr) {
+  el.classList.remove('hidden');
+  try {
+    const result = JSON.parse(dataStr);
+    const div = document.createElement('div');
+    div.className = 'bg-gray-900 border rounded-lg p-3 text-sm ' +
+      (result.success ? 'border-green-700' : 'border-red-700');
+
+    if (result.success) {
+      let html = '<div class="text-green-400 font-medium mb-1">注册成功</div>';
+      if (result.email) html += '<div class="text-gray-300"><span class="text-gray-500">Email:</span> ' + escHtml(result.email) + '</div>';
+      if (result.token) html += '<div class="text-gray-300 break-all"><span class="text-gray-500">Token:</span> ' + escHtml(result.token) + '</div>';
+      if (result.api_key) html += '<div class="text-gray-300 break-all"><span class="text-gray-500">API Key:</span> ' + escHtml(result.api_key) + '</div>';
+      div.innerHTML = html;
+    } else {
+      div.innerHTML = '<div class="text-red-400 font-medium">注册失败</div><div class="text-gray-400 text-xs mt-1">' + escHtml(result.error || '未知错误') + '</div>';
+    }
+    el.appendChild(div);
+  } catch {
+    const div = document.createElement('div');
+    div.className = 'text-gray-400 text-xs';
+    div.textContent = dataStr;
+    el.appendChild(div);
+  }
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// === Settings ===
+async function loadSettings() {
+  try {
+    const [mailResp, proxyResp] = await Promise.all([
+      api('GET', '/api/settings/mail'),
+      api('GET', '/api/settings/proxy')
+    ]);
+
+    if (mailResp.ok) {
+      const mail = await mailResp.json();
+      document.getElementById('set-provider-priority').value = mail.provider_priority || '';
+      document.getElementById('set-ahem-url').value = mail.ahem?.base_url || '';
+      document.getElementById('set-ahem-domains').value = mail.ahem?.domains || '';
+      document.getElementById('set-yyds-url').value = mail.yydsmail?.base_url || '';
+      document.getElementById('set-yyds-key').value = mail.yydsmail?.api_key || '';
+    }
+
+    if (proxyResp.ok) {
+      const proxy = await proxyResp.json();
+      document.getElementById('set-proxy-default').value = proxy.default || '';
+      document.getElementById('set-proxy-pool').value = (proxy.pool || []).join('\n');
+    }
+  } catch {}
+}
+
+async function saveMailSettings() {
+  const msgEl = document.getElementById('mail-msg');
+  const body = {
+    provider_priority: document.getElementById('set-provider-priority').value,
+    ahem: {
+      base_url: document.getElementById('set-ahem-url').value,
+      domains: document.getElementById('set-ahem-domains').value
+    },
+    yydsmail: {
+      base_url: document.getElementById('set-yyds-url').value,
+      api_key: document.getElementById('set-yyds-key').value
+    }
+  };
+
+  try {
+    const resp = await api('POST', '/api/settings/mail', body);
+    const data = await resp.json();
+    msgEl.textContent = data.message || '已保存';
+    msgEl.className = 'text-sm text-green-400';
+    msgEl.classList.remove('hidden');
+    setTimeout(() => msgEl.classList.add('hidden'), 3000);
+  } catch {
+    msgEl.textContent = '保存失败';
+    msgEl.className = 'text-sm text-red-400';
+    msgEl.classList.remove('hidden');
+  }
+}
+
+async function saveProxySettings() {
+  const msgEl = document.getElementById('proxy-msg');
+  const poolText = document.getElementById('set-proxy-pool').value;
+  const pool = poolText.split('\n').map(s => s.trim()).filter(Boolean);
+
+  const body = {
+    default: document.getElementById('set-proxy-default').value,
+    pool: pool
+  };
+
+  try {
+    const resp = await api('POST', '/api/settings/proxy', body);
+    const data = await resp.json();
+    msgEl.textContent = data.message || '已保存';
+    msgEl.className = 'text-sm text-green-400';
+    msgEl.classList.remove('hidden');
+    setTimeout(() => msgEl.classList.add('hidden'), 3000);
+  } catch {
+    msgEl.textContent = '保存失败';
+    msgEl.className = 'text-sm text-red-400';
+    msgEl.classList.remove('hidden');
+  }
+}
+</script>
+</body>
+</html>

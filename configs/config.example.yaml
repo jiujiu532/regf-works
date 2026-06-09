@@ -1,6 +1,11 @@
 server:
   port: 8080
 
+auth:
+  username: "admin"
+  password: "admin123"
+  jwt_secret: "change-me-in-production"
+
 proxy:
   default: ""
   pool: []

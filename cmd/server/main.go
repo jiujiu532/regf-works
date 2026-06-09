@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/grok-fireworks-reg/internal/config"
 	"github.com/grok-fireworks-reg/internal/handler"
+	"github.com/grok-fireworks-reg/internal/middleware"
+	"github.com/grok-fireworks-reg/web"
 )
 
 func main() {
@@ -33,6 +36,9 @@ func main() {
 	cfg := config.Load(*cfgFile)
 	log.Info().Int("port", cfg.Server.Port).Msg("配置加载完成")
 
+	// 初始化 JWT
+	middleware.SetJWTSecret(cfg.Auth.JWTSecret)
+
 	// 初始化 gin
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -48,13 +54,16 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 注册路由
+	// 注册处理器
+	authHandler := handler.NewAuthHandler(cfg)
 	grokHandler := handler.NewGrokHandler(cfg)
 	fireworksHandler := handler.NewFireworksHandler(cfg)
 	settingsHandler := handler.NewSettingsHandler(cfg)
 
+	// API 路由
 	api := r.Group("/api")
 	{
+		// 无需认证的路由
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status":    "ok",
@@ -62,18 +71,35 @@ func main() {
 				"fireworks": "ready",
 			})
 		})
-		api.POST("/grok/register", grokHandler.Register)
-		api.POST("/fireworks/register", fireworksHandler.Register)
+		api.POST("/auth/login", authHandler.Login)
 
-		// 设置接口（前端可用于动态配置邮箱服务地址等）
-		settings := api.Group("/settings")
+		// 需要认证的路由
+		protected := api.Group("")
+		protected.Use(middleware.AuthRequired())
 		{
-			settings.GET("/mail", settingsHandler.GetMailSettings)
-			settings.POST("/mail", settingsHandler.UpdateMailSettings)
-			settings.GET("/proxy", settingsHandler.GetProxySettings)
-			settings.POST("/proxy", settingsHandler.UpdateProxySettings)
+			protected.GET("/auth/me", authHandler.Me)
+			protected.POST("/grok/register", grokHandler.Register)
+			protected.POST("/fireworks/register", fireworksHandler.Register)
+
+			settings := protected.Group("/settings")
+			{
+				settings.GET("/mail", settingsHandler.GetMailSettings)
+				settings.POST("/mail", settingsHandler.UpdateMailSettings)
+				settings.GET("/proxy", settingsHandler.GetProxySettings)
+				settings.POST("/proxy", settingsHandler.UpdateProxySettings)
+			}
 		}
 	}
+
+	// 嵌入式前端静态文件
+	staticFS, _ := fs.Sub(web.StaticFS, ".")
+	r.GET("/", func(c *gin.Context) {
+		c.FileFromFS("index.html", http.FS(staticFS))
+	})
+	// SPA fallback：非 API 路径都返回 index.html
+	r.NoRoute(func(c *gin.Context) {
+		c.FileFromFS("index.html", http.FS(staticFS))
+	})
 
 	// 启动 HTTP 服务
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

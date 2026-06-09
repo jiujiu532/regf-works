@@ -12,11 +12,19 @@ import (
 // Config 全局配置
 type Config struct {
 	Server    ServerConfig    `mapstructure:"server"`
+	Auth      AuthConfig      `mapstructure:"auth"`
 	Proxy     ProxyConfig     `mapstructure:"proxy"`
 	Mail      MailConfig      `mapstructure:"mail"`
 	Turnstile TurnstileConfig `mapstructure:"turnstile"`
 	Grok      GrokConfig      `mapstructure:"grok"`
 	Fireworks FireworksConfig `mapstructure:"fireworks"`
+}
+
+// AuthConfig 认证配置
+type AuthConfig struct {
+	Username  string `mapstructure:"username"`
+	Password  string `mapstructure:"password"`
+	JWTSecret string `mapstructure:"jwt_secret"`
 }
 
 type ServerConfig struct {
@@ -76,6 +84,9 @@ func Load(cfgFile string) *Config {
 
 	// 默认值
 	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("auth.username", "admin")
+	viper.SetDefault("auth.password", "admin123")
+	viper.SetDefault("auth.jwt_secret", "change-me-in-production")
 	viper.SetDefault("fireworks.service_url", "http://127.0.0.1:5000")
 	viper.SetDefault("fireworks.max_concurrent", 10)
 	viper.SetDefault("grok.site_key", "0x4AAAAAAAhr9JGVDZbrZOo0")
