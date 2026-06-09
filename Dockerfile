@@ -46,7 +46,8 @@ COPY --from=builder /bin/reg-cli /app/reg-cli
 COPY scripts/requirements-full.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
-RUN python -m camoufox fetch
+# Camoufox 浏览器延迟到首次启动时下载（避免构建时 GitHub API 限流）
+ENV CAMOUFOX_HOME=/app/.camoufox
 
 COPY scripts/fireworks_reg.py /app/scripts/fireworks_reg.py
 COPY scripts/turnstile_solver.py /app/scripts/turnstile_solver.py
