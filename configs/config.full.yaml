@@ -1,0 +1,33 @@
+# full 镜像默认配置 — Turnstile solver 指向容器内服务
+server:
+  port: 8080
+
+proxy:
+  default: ""
+  pool: []
+
+mail:
+  provider_priority: "ahem"
+  yydsmail:
+    base_url: ""
+    api_key: ""
+  ahem:
+    base_url: ""
+    domains: ""
+
+turnstile:
+  solver_urls:
+    - "http://127.0.0.1:8888"
+  solver_proxy: ""
+  capsolver_key: ""
+  yescaptcha_key: ""
+
+grok:
+  site_key: "0x4AAAAAAAhr9JGVDZbrZOo0"
+  action_id: ""
+  state_tree: ""
+  cf_bypass_solver_url: ""
+
+fireworks:
+  service_url: "http://127.0.0.1:5000"
+  max_concurrent: 10
