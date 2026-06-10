@@ -88,10 +88,10 @@ FIREWORKS_COGNITO_BASE = "https://cognito-idp.us-west-2.amazonaws.com/"
 
 # Server Action IDs — 跟 fireworks 前端部署哈希强耦合，升级时需要重新抓
 # 最后更新: 2026-06-10
-FIREWORKS_ACTION_SIGNUP      = "408aa536b5191228ace5bd1baade455dd72b26da9e"
-FIREWORKS_ACTION_LOGIN       = "40466ede9ac5c197ca26c06e5e0faa1e3fe2c3995f"
-FIREWORKS_ACTION_ONBOARDING  = "602082cc61102575a0ebffac1f154bfb7421257b11"
-FIREWORKS_ACTION_CREATE_KEY  = "704939dc750057ce0d3374513780b2619fa0d04363"
+FIREWORKS_ACTION_SIGNUP      = "408aa536b5191228ace5bd1baade455dd72b26da9e"  # submitSignupForm
+FIREWORKS_ACTION_LOGIN       = "40b4d5b71a361f6278169582309e9ddfa97cc039cd"  # submitLoginForm
+FIREWORKS_ACTION_ONBOARDING  = "60a001e530b99884536040f375194661abde8dfd92"  # submitOnboardingForm
+FIREWORKS_ACTION_CREATE_KEY  = "6039cbbda29c64091d30d69ccf22e2cd7818df3a7f"  # createUserAction (原 createApiKey)
 
 FIREWORKS_ROUTER_SIGNUP     = '%5B%22%22%2C%7B%22children%22%3A%5B%22(v2-auth)%22%2C%7B%22children%22%3A%5B%22signup%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D'
 FIREWORKS_ROUTER_LOGIN      = '[""%2C{"children":["(v2-auth)"%2C{"children":["login"%2C{"children":["email"%2C{"children":["__PAGE__"%2C{}]}]}]}]}%2Cnull%2Cnull%2Ctrue]'
@@ -238,6 +238,85 @@ def _poll_yydsmail(yydsmail_url: str, yydsmail_key: str, email: str, meta: dict,
                 return None
         else:
             time.sleep(2)
+    return None
+
+
+def _poll_ahem(base_url: str, email: str, meta: dict,
+               timeout: int = 180,
+               log_q: Optional[queue.Queue] = None,
+               cancel: Optional[Event] = None,
+               extractor=None,
+               progress_label: str = "确认链接") -> Optional[str]:
+    """轮询 AHEM 邮箱服务获取邮件并用 extractor 提取内容。"""
+    prefix = meta.get("prefix", "")
+    if not prefix:
+        parts = email.split("@", 1)
+        prefix = parts[0] if parts else ""
+    if not base_url:
+        base_url = meta.get("base_url", "")
+    if not base_url:
+        logger.warning("[%s] ahem: 缺少 base_url", email)
+        return None
+    # 确保以 /api 结尾
+    base_url = base_url.rstrip("/")
+    if not base_url.endswith("/api"):
+        base_url += "/api"
+
+    list_url = f"{base_url}/mailbox/{prefix}/email"
+    start = time.time()
+    attempt = 0
+    _extractor = extractor or (lambda t: t if t else None)
+
+    while time.time() - start < timeout:
+        if cancel is not None and cancel.is_set():
+            return None
+        attempt += 1
+        if log_q is not None and attempt % 5 == 1 and attempt > 1:
+            elapsed = int(time.time() - start)
+            log_q.put(f"等待{progress_label} (ahem)... ({elapsed}s / {timeout}s)")
+        try:
+            req = urllib.request.Request(list_url)
+            req.add_header("User-Agent", "Mozilla/5.0 (compatible; RegPlatform/1.0)")
+            with urllib.request.urlopen(req, timeout=10, context=_SSL_CTX) as resp:
+                emails_list = json.loads(resp.read())
+
+            if isinstance(emails_list, list) and len(emails_list) > 0:
+                for mail_item in emails_list:
+                    email_id = mail_item.get("emailId", "")
+                    subject = mail_item.get("subject", "") or ""
+                    # 先从 subject 提取
+                    code = _extractor(subject)
+                    if code:
+                        logger.info("[%s] ahem subject 提取结果: %s", email, code)
+                        return code
+
+                    # 获取邮件详情
+                    if email_id:
+                        try:
+                            detail_url = f"{base_url}/mailbox/{prefix}/email/{email_id}"
+                            dreq = urllib.request.Request(detail_url)
+                            dreq.add_header("User-Agent", "Mozilla/5.0 (compatible; RegPlatform/1.0)")
+                            with urllib.request.urlopen(dreq, timeout=10, context=_SSL_CTX) as dresp:
+                                detail = json.loads(dresp.read())
+                            # AHEM 详情格式: {text: "...", html: "...", subject: "..."}
+                            for field in ("text", "html", "textAsHtml"):
+                                content = detail.get(field)
+                                if content and isinstance(content, str):
+                                    code = _extractor(content)
+                                    if code:
+                                        logger.info("[%s] ahem %s 提取结果: %s", email, field, code)
+                                        return code
+                        except Exception as e:
+                            logger.debug("[%s] ahem 详情获取失败(id=%s): %s", email, email_id, e)
+
+        except Exception as exc:
+            logger.debug("[%s] ahem 轮询出错(第%d次): %s", email, attempt, exc)
+
+        if cancel is not None:
+            if cancel.wait(3):
+                return None
+        else:
+            time.sleep(3)
     return None
 
 
@@ -608,13 +687,24 @@ async def _do_fireworks_register(
                 return parsed[2]
             return None
 
-        code = await asyncio.to_thread(
-            _poll_yydsmail,
-            yydsmail_url, yydsmail_key, email, mail_meta or {},
-            timeout=max(_MAIL_TIMEOUT, 180),
-            log_q=log_q, cancel=cancel,
-            extractor=_fw_extractor, progress_label="确认链接",
-        )
+        # 根据 mail_provider 选择轮询函数
+        if mail_provider == "ahem":
+            ahem_base_url = (mail_meta or {}).get("base_url", "")
+            code = await asyncio.to_thread(
+                _poll_ahem,
+                ahem_base_url, email, mail_meta or {},
+                timeout=max(_MAIL_TIMEOUT, 180),
+                log_q=log_q, cancel=cancel,
+                extractor=_fw_extractor, progress_label="确认链接",
+            )
+        else:
+            code = await asyncio.to_thread(
+                _poll_yydsmail,
+                yydsmail_url, yydsmail_key, email, mail_meta or {},
+                timeout=max(_MAIL_TIMEOUT, 180),
+                log_q=log_q, cancel=cancel,
+                extractor=_fw_extractor, progress_label="确认链接",
+            )
         if not code or not confirm_triple_holder:
             return {"ok": False, "error": f"确认邮件超时 (provider={mail_provider or 'yydsmail'})",
                     "retriable": True}
@@ -696,115 +786,24 @@ async def _do_fireworks_register(
         else:
             return {"ok": False, "error": "onboarding 重试次数耗尽", "retriable": True}
         lq(f"onboarding 完成, redirectPath={ob_resp.get('redirectPath')}")
-
-        # 6. 创建 API key
-        if _cancelled():
-            return {"ok": False, "error": "任务已取消"}
-        lq("创建 API key...")
-        key_name = f"grok-fireworks-reg-{int(time.time())}"
-        key_payload = json.dumps([key_name, None])
-        try:
-            key_resp = await _fw_post_action(
-                sess,
-                path="/settings/users/api-keys",
-                action_id=FIREWORKS_ACTION_CREATE_KEY,
-                router_state=FIREWORKS_ROUTER_APIKEYS,
-                payload_json=key_payload,
-                timeout=30,
-            )
-        except Exception as exc:
-            return {"ok": False, "error": f"api-key 调用失败: {exc}", "retriable": True}
-
-        api_key = key_resp.get("key") or ""
-        key_id = key_resp.get("keyId") or ""
-        if not api_key:
-            return {"ok": False, "error": f"api-key 返回异常: {key_resp}", "retriable": True}
-        lq(f"API key 创建成功: {key_id} ({api_key[:6]}...)")
-
-        warning_parts: list[str] = []
-        account_state = {}
-        try:
-            account_state = await asyncio.to_thread(_fw_collect_account_state, api_key, email, proxy)
-            actual_account_id = (account_state.get("account_id") or "").strip()
-            if actual_account_id and actual_account_id != account_id:
-                warning_parts.append(f"real account_id={actual_account_id} (requested={account_id})")
-                lq(f"官方 API 返回真实 account_id={actual_account_id}，覆盖本地 onboarding account_id={account_id}")
-                account_id = actual_account_id
-
-            suspend_state = (account_state.get("suspend_state") or "").strip().upper()
-            status_code = (account_state.get("account_status_code") or "").strip()
-            status_message = (account_state.get("account_status_message") or "").strip()
-            if suspend_state and suspend_state != "UNSUSPENDED":
-                detail = status_message or status_code or suspend_state
-                lq(f"账号状态异常: suspend_state={suspend_state} detail={detail}")
-                return {
-                    "ok": False,
-                    "error": f"account suspended: {suspend_state} ({detail})",
-                    "retriable": False,
-                    "apikey": api_key,
-                    "key_id": key_id,
-                    "requested_account_id": requested_account_id,
-                    "account_id": account_id,
-                    "account_status_code": status_code,
-                    "account_status_message": status_message,
-                    "suspend_state": suspend_state,
-                    "quota_summary": account_state.get("quota_summary", []),
-                    "quota_names": account_state.get("quota_names", []),
-                }
-        except FireworksAccountSuspended as exc:
-            lq(f"账号出生即挂起（/v1/accounts 412 suspended）: {exc}")
-            return {
-                "ok": False,
-                "error": f"account suspended at creation: {exc.body[:200]}",
-                "retriable": False,
-                "apikey": api_key,
-                "key_id": key_id,
-                "requested_account_id": requested_account_id,
-                "account_id": account_id,
-                "suspend_state": "CREDIT_DEPLETED",
-            }
-        except Exception as exc:
-            warning_parts.append(f"post-check failed: {exc}")
-            lq(f"官方 API 回查失败（不阻断注册结果）: {exc}")
-
-        # 终极验活：打 /inference/v1/models
-        models_ok, models_detail = await asyncio.to_thread(_fw_verify_apikey_live, api_key, proxy)
-        lq(f"API key 验活: ok={models_ok} detail={models_detail}")
-        if not models_ok:
-            return {
-                "ok": False,
-                "error": f"api key cannot list models: {models_detail}",
-                "retriable": False,
-                "apikey": api_key,
-                "key_id": key_id,
-                "requested_account_id": requested_account_id,
-                "account_id": account_id,
-                "suspend_state": account_state.get("suspend_state", "") or "UNKNOWN",
-                "models_check": models_detail,
-            }
-        warning_parts.append(f"models_check: {models_detail}")
-
-        warning = "; ".join(part for part in warning_parts if part)
-
+        
+        # 6. API key 创建（Fireworks 已废弃自动创建，需手动到网页创建）
+        lq("注册完成！账号可用，请手动登录 app.fireworks.ai 创建 API key")
+        
+        # 直接返回注册成功，不创建 API key
         return {
             "ok": True,
             "email": email,
             "password": password,
-            "apikey": api_key,
             "account_id": account_id,
             "requested_account_id": requested_account_id,
-            "user_sub": user_sub,
-            "key_id": key_id,
-            "first_name": first_name,
-            "last_name": last_name,
-            "account_status_code": account_state.get("account_status_code", ""),
-            "account_status_message": account_state.get("account_status_message", ""),
-            "suspend_state": account_state.get("suspend_state", ""),
-            "quota_summary": account_state.get("quota_summary", []),
-            "quota_names": account_state.get("quota_names", []),
-            "models_check": models_detail,
-            "warning": warning,
+            "message": "注册成功，请登录 https://app.fireworks.ai/settings/users/api-keys 创建 API key",
+            "warning": "Fireworks 已移除自动创建 API key 的 Server Action，需手动创建"
         }
+
+
+
+
 
     except asyncio.CancelledError:
         return {"ok": False, "error": "任务已取消"}
