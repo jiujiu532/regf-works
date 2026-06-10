@@ -1,542 +1,1277 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>regf-works</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0f0f23;--card:#1a1a2e;--sidebar:#16213e;--text:#e0e0e0;--text2:#888;--white:#fff;--primary:#6366f1;--primary2:#818cf8;--success:#10b981;--error:#ef4444;--warning:#f59e0b;--input-bg:#0f0f23;--border:#333;--radius:8px;--radius-sm:6px;--shadow:0 4px 24px rgba(0,0,0,0.3)}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:#1a1a2e}
-::-webkit-scrollbar-thumb{background:#444;border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:#555}
-/* Login */
-.login-wrap{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg)}
-.login-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:40px 32px;width:360px;box-shadow:var(--shadow);backdrop-filter:blur(10px)}
-.login-card h1{text-align:center;font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--primary),var(--primary2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:28px}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:0.8rem;color:var(--text2);margin-bottom:6px}
-input,textarea,select{width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);font-size:0.9rem;outline:none;transition:all .2s}
-input:focus,textarea:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,0.2)}
-textarea{resize:vertical;min-height:80px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:0.9rem;font-weight:500;cursor:pointer;transition:all .2s;text-decoration:none}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-primary{background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff}
-.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,0.4)}
-.btn-danger{background:var(--error);color:#fff}
-.btn-danger:hover:not(:disabled){background:#dc2626}
-.btn-sm{padding:6px 12px;font-size:0.78rem}
-.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
-.btn-ghost:hover{color:var(--text);border-color:#555}
-.error-msg{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:var(--radius-sm);padding:10px;font-size:0.85rem;margin-bottom:16px;display:none}
-/* Layout */
-.app{display:none;height:100vh;flex-direction:column}
-.header{height:56px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
-.header h1{font-size:1.1rem;font-weight:700;background:linear-gradient(135deg,var(--primary),var(--primary2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.header-right{display:flex;align-items:center;gap:12px}
-.header-right span{color:var(--text2);font-size:0.85rem}
-.main{display:flex;flex:1;overflow:hidden}
-.sidebar{width:220px;background:var(--sidebar);border-right:1px solid var(--border);padding:16px 0;flex-shrink:0;display:flex;flex-direction:column;gap:4px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:12px 24px;color:var(--text2);font-size:0.9rem;cursor:pointer;transition:all .15s;border-left:3px solid transparent}
-.nav-item:hover{color:var(--text);background:rgba(99,102,241,0.05)}
-.nav-item.active{color:var(--primary2);background:rgba(99,102,241,0.1);border-left-color:var(--primary)}
-.content-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.content{flex:1;overflow-y:auto;padding:24px}
-.panel{display:none}
-.panel.active{display:block}
-/* Log window */
-.log-wrap{height:200px;background:#0a0a1a;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:height .2s}
-.log-wrap.collapsed{height:32px}
-.log-header{display:flex;align-items:center;justify-content:space-between;padding:6px 16px;background:#0d0d1f;border-bottom:1px solid #222;flex-shrink:0}
-.log-header span{font-size:0.8rem;color:var(--text2)}
-.log-header .log-actions{display:flex;gap:8px}
-.log-body{flex:1;overflow-y:auto;padding:8px 16px;font-family:'Cascadia Code','Fira Code',monospace;font-size:0.78rem;line-height:1.6}
-.log-line{white-space:pre-wrap;word-break:break-all}
-.log-success{color:var(--success)}
-.log-error{color:var(--error)}
-.log-info{color:var(--primary)}
-.log-warn{color:var(--warning)}
-.log-ok{color:#4ade80;font-weight:700}
-/* Cards */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);transition:all .2s}
-.card:hover{border-color:#444;transform:translateY(-1px)}
-.card h2{font-size:1rem;font-weight:600;margin-bottom:16px}
-/* Sub tabs */
-.sub-tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--border)}
-.sub-tab{padding:8px 20px;font-size:0.85rem;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
-.sub-tab:hover{color:var(--text)}
-.sub-tab.active{color:var(--primary2);border-bottom-color:var(--primary)}
-/* Register */
-.reg-form{max-width:480px}
-.reg-actions{display:flex;gap:10px;margin-top:16px}
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-/* Results */
-.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-.results-table{width:100%;border-collapse:collapse;font-size:0.85rem}
-.results-table th{text-align:left;padding:10px 12px;color:var(--text2);font-weight:500;border-bottom:1px solid var(--border);font-size:0.8rem}
-.results-table td{padding:10px 12px;border-bottom:1px solid #222;vertical-align:middle}
-.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:0.72rem;font-weight:600}
-.badge-grok{background:rgba(16,185,129,0.15);color:var(--success)}
-.badge-fireworks{background:rgba(245,158,11,0.15);color:var(--warning)}
-.badge-success{background:rgba(16,185,129,0.15);color:var(--success)}
-.badge-fail{background:rgba(239,68,68,0.15);color:var(--error)}
-.cred-cell{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:0.78rem;color:var(--text2)}
-.empty-state{text-align:center;padding:60px 20px;color:var(--text2)}
-.empty-state p{margin-top:8px;font-size:0.85rem}
-/* Settings sections */
-.settings-section{margin-bottom:20px}
-.section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .15s}
-.section-header:hover{border-color:#444}
-.section-header h3{font-size:0.95rem;font-weight:600;display:flex;align-items:center;gap:8px}
-.section-header .arrow{transition:transform .2s;color:var(--text2)}
-.section-header.open .arrow{transform:rotate(180deg)}
-.section-body{background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:20px;display:none}
-.section-body.open{display:block}
-.section-purple h3{color:#a78bfa}
-.section-yellow h3{color:var(--warning)}
-.section-red h3{color:var(--error)}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-/* Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px)}
-.modal-overlay.show{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:90%;max-width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
-.modal h3{font-size:1rem;margin-bottom:16px;color:var(--white)}
-.modal pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:0.8rem;overflow-x:auto;white-space:pre-wrap;word-break:break-all}
-/* Toast */
-.toast{position:fixed;top:20px;right:20px;background:var(--card);border:1px solid var(--success);color:var(--success);padding:12px 20px;border-radius:var(--radius-sm);font-size:0.85rem;z-index:2000;opacity:0;transform:translateY(-10px);transition:all .3s;pointer-events:none}
-.toast.show{opacity:1;transform:translateY(0)}
-/* Mobile */
-@media(max-width:768px){
-.sidebar{position:fixed;bottom:0;left:0;right:0;width:100%;height:56px;flex-direction:row;justify-content:center;padding:0;z-index:100;border-right:none;border-top:1px solid var(--border)}
-.nav-item{flex-direction:column;gap:2px;padding:8px 16px;font-size:0.7rem;border-left:none;border-top:3px solid transparent}
-.nav-item.active{border-left-color:transparent;border-top-color:var(--primary)}
-.content-wrap{margin-bottom:56px}
-.main{flex-direction:column}
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>regf-works | 自动化注册平台</title>
+  <style>
+    /* CSS 重置 & 变量 */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-main: #0b0b16;
+      --bg-card: #14142b;
+      --bg-sidebar: #0f0f22;
+      --bg-input: #090915;
+      --border-color: #22223b;
+      --border-focus: #6366f1;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --success: #10b981;
+      --error: #f43f5e;
+      --warning: #f59e0b;
+      --radius-lg: 12px;
+      --radius-md: 8px;
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-main); }
+    ::-webkit-scrollbar-thumb { background: #33334d; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444466; }
+
+    /* 通用组件 */
+    input, textarea, select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      color: var(--text-main);
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    textarea { resize: vertical; min-height: 100px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      text-decoration: none;
+      color: #fff;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--primary-gradient);
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+    }
+    .btn-danger {
+      background: var(--error);
+      box-shadow: 0 4px 14px rgba(244, 63, 94, 0.3);
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: #e11d48;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: #27273a;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #32324c;
+    }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 4px; }
+
+    /* Login 页面 */
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: radial-gradient(circle at top right, #1a103c 0%, var(--bg-main) 60%);
+    }
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 48px 40px;
+      width: 400px;
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(10px);
+    }
+    .login-card h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 8px;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .login-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 32px;
+    }
+    .login-card .form-group { margin-bottom: 20px; }
+    .login-card .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    /* Layout */
+    .layout-app { display: none; height: 100vh; flex-direction: column; }
+    .layout-header {
+      height: 64px;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .header-logo {
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-user { display: flex; align-items: center; gap: 16px; }
+    .header-user span { font-size: 0.85rem; color: var(--text-muted); }
+
+    .layout-body { display: flex; flex: 1; overflow: hidden; }
+    .layout-sidebar {
+      width: 240px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      padding: 24px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-left: 4px solid transparent;
+    }
+    .nav-link:hover { color: var(--text-main); background: #161630; }
+    .nav-link.active {
+      color: var(--white);
+      background: #181838;
+      border-left-color: var(--primary);
+    }
+
+    .layout-content-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #0d0d1f;
+    }
+    .layout-content { flex: 1; overflow-y: auto; padding: 32px; }
+
+    /* Panels */
+    .panel { display: none; }
+    .panel.active { display: block; animation: fadeIn 0.25s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 24px;
+    }
+    .card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 20px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; }
+    .tab {
+      padding: 12px 24px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 600;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+    }
+    .tab:hover { color: var(--text-main); }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* Log Window */
+    .log-panel {
+      height: 240px;
+      background: #05050f;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .log-panel.collapsed { height: 40px; }
+    .log-header {
+      height: 40px;
+      background: #08081a;
+      border-bottom: 1px solid #16162d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .log-header span { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+    .log-controls { display: flex; gap: 12px; }
+    .log-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+    .log-line { margin-bottom: 4px; white-space: pre-wrap; word-break: break-all; }
+    .log-success { color: var(--success); }
+    .log-error { color: var(--error); }
+    .log-info { color: var(--primary); }
+    .log-warn { color: var(--warning); }
+    .log-ok { color: #22c55e; font-weight: bold; }
+
+    /* Results Table */
+    .table-container { overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+    .table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    .table th { background: #111126; padding: 14px 16px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
+    .table td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
+    .table tbody tr:hover { background: #161632; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-grok { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+    .badge-fireworks { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    .badge-failed { background: rgba(244, 63, 94, 0.15); color: var(--error); }
+
+    .cell-cred {
+      max-width: 220px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .toolbar { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; justify-content: space-between; }
+    .toolbar-left { display: flex; gap: 12px; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      width: 600px;
+      max-width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      background: #090918;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .modal-body pre { white-space: pre-wrap; word-break: break-all; color: #a5b4fc; }
+    .modal-footer { padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      background: #1e1b4b;
+      border: 1px solid var(--border-focus);
+      color: #fff;
+      padding: 16px 24px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      font-size: 0.9rem;
+      min-width: 240px;
+      transform: translateX(120%);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .toast.show { transform: translateX(0); }
+    .toast-success { border-color: var(--success); }
+    .toast-error { border-color: var(--error); }
+
+    /* Forms */
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+
+    /* Collapsible Sections */
+    .section-header {
+      padding: 16px 24px;
+      background: #181832;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s ease;
+    }
+    .section-header:hover { background: #1f1f42; }
+    .section-header h3 { font-size: 1rem; display: flex; align-items: center; gap: 10px; }
+    .section-body {
+      padding: 24px;
+      background: #111124;
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      margin-top: -12px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .section-body.show { display: block; }
+    .arrow-icon { transition: transform 0.2s ease; }
+    .section-header.active .arrow-icon { transform: rotate(90deg); }
+
+    .empty-state { text-align: center; padding: 48px; color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .layout-body { flex-direction: column; }
+      .layout-sidebar {
+        width: 100%;
+        height: 60px;
+        flex-direction: row;
+        padding: 0;
+        justify-content: space-around;
+        border-right: none;
+        border-top: 1px solid var(--border-color);
+        order: 2;
+      }
+      .nav-link { border-left: none; border-top: 4px solid transparent; padding: 12px; width: 100%; justify-content: center; }
+      .nav-link.active { border-top-color: var(--primary); }
+      .layout-content-wrap { order: 1; }
+      .log-panel { height: 160px; }
+    }
+  </style>
 </head>
 <body>
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-<!-- Modal -->
-<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
-    <h3 id="modal-title">详情</h3>
-    <pre id="modal-body"></pre>
-    <div style="margin-top:16px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="closeModal()">关闭</button></div>
-  </div>
-</div>
-<!-- Login Page -->
-<div class="login-wrap" id="loginPage">
-  <div class="login-card">
-    <h1>regf-works</h1>
-    <div class="error-msg" id="loginError"></div>
-    <div class="form-group">
-      <label>用户名</label>
-      <input id="loginUser" type="text" placeholder="admin" autocomplete="username">
-    </div>
-    <div class="form-group">
-      <label>密码</label>
-      <input id="loginPass" type="password" placeholder="请输入密码" autocomplete="current-password">
-    </div>
-    <button class="btn btn-primary" style="width:100%" id="loginBtn" onclick="doLogin()">登录</button>
-  </div>
-</div>
-<!-- App -->
-<div class="app" id="appPage">
-  <div class="header">
-    <h1>regf-works</h1>
-    <div class="header-right">
-      <span id="dispUser"></span>
-      <button class="btn btn-danger btn-sm" onclick="doLogout()">退出</button>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Login Page -->
+  <div id="loginPage" class="login-container">
+    <div class="login-card">
+      <h1>regf-works</h1>
+      <div class="login-subtitle">自动化注册与服务控制台</div>
+      <div class="form-group">
+        <label for="username">用户名</label>
+        <input type="text" id="username" placeholder="输入用户名">
+      </div>
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input type="password" id="password" placeholder="输入密码">
+      </div>
+      <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="handleLogin()">登录系统</button>
     </div>
   </div>
-  <div class="main">
-    <div class="sidebar">
-      <div class="nav-item active" data-panel="register" onclick="switchPanel('register')">📝 注册</div>
-      <div class="nav-item" data-panel="results" onclick="switchPanel('results')">📋 结果</div>
-      <div class="nav-item" data-panel="settings" onclick="switchPanel('settings')">⚙️ 设置</div>
-    </div>
-    <div class="content-wrap">
-      <div class="content">
-        <!-- Register Panel -->
-        <div class="panel active" id="panelRegister">
-          <div class="sub-tabs">
-            <div class="sub-tab active" data-reg="grok" onclick="switchReg('grok')">Grok</div>
-            <div class="sub-tab" data-reg="fireworks" onclick="switchReg('fireworks')">Fireworks</div>
-          </div>
-          <div class="reg-form" id="regGrok">
-            <div class="form-group"><label>代理 (可选)</label><input id="grokProxy" type="text" placeholder="http://user:pass@host:port"></div>
-            <div class="form-group"><label>数量</label><input id="grokCount" type="number" value="1" min="1" max="100"></div>
-            <div class="reg-actions">
-              <button class="btn btn-primary" id="grokStartBtn" onclick="startReg('grok')"><span id="grokBtnText">开始注册</span></button>
-              <button class="btn btn-danger" id="grokStopBtn" style="display:none" onclick="stopReg('grok')">停止</button>
+
+  <!-- App Layout -->
+  <div id="appLayout" class="layout-app">
+    <header class="layout-header">
+      <div class="header-logo">regf-works</div>
+      <div class="header-user">
+        <span id="displayUsername">admin</span>
+        <button class="btn btn-secondary btn-sm" onclick="handleLogout()">退出</button>
+      </div>
+    </header>
+
+    <div class="layout-body">
+      <aside class="layout-sidebar">
+        <div class="nav-link active" data-panel="register" onclick="switchPanel('register')">📝 账号注册</div>
+        <div class="nav-link" data-panel="results" onclick="switchPanel('results')">📋 注册结果</div>
+        <div class="nav-link" data-panel="settings" onclick="switchPanel('settings')">⚙️ 系统设置</div>
+      </aside>
+
+      <div class="layout-content-wrap">
+        <main class="layout-content">
+
+          <!-- 1. 注册面板 -->
+          <div id="panel-register" class="panel active">
+            <div class="tabs">
+              <div class="tab active" data-tab="grok" onclick="switchTab('grok')">Grok</div>
+              <div class="tab" data-tab="fireworks" onclick="switchTab('fireworks')">Fireworks</div>
             </div>
-          </div>
-          <div class="reg-form" id="regFireworks" style="display:none">
-            <div class="form-group"><label>代理 (可选)</label><input id="fireworksProxy" type="text" placeholder="http://user:pass@host:port"></div>
-            <div class="form-group"><label>数量</label><input id="fireworksCount" type="number" value="1" min="1" max="100"></div>
-            <div class="reg-actions">
-              <button class="btn btn-primary" id="fireworksStartBtn" onclick="startReg('fireworks')"><span id="fireworksBtnText">开始注册</span></button>
-              <button class="btn btn-danger" id="fireworksStopBtn" style="display:none" onclick="stopReg('fireworks')">停止</button>
-            </div>
-          </div>
-        </div>
-        <!-- Results Panel -->
-        <div class="panel" id="panelResults">
-          <div class="toolbar">
-            <button class="btn btn-ghost btn-sm" onclick="exportResults()">导出 JSON</button>
-            <button class="btn btn-ghost btn-sm" onclick="clearResults()">清空</button>
-            <select id="filterPlatform" onchange="renderResults()" style="padding:6px 10px;font-size:0.8rem">
-              <option value="all">全部平台</option>
-              <option value="grok">Grok</option>
-              <option value="fireworks">Fireworks</option>
-            </select>
-          </div>
-          <div id="resultsBody"></div>
-        </div>
-        <!-- Settings Panel -->
-        <div class="panel" id="panelSettings">
-          <div class="settings-section section-purple">
-            <div class="section-header open" onclick="toggleSection(this)">
-              <h3>📧 邮箱配置</h3><span class="arrow">▼</span>
-            </div>
-            <div class="section-body open">
-              <div class="form-group"><label>Provider 优先级</label><input id="setProviderPriority" type="text" placeholder="ahem,yydsmail"></div>
-              <div class="form-row">
-                <div>
-                  <p style="font-size:0.85rem;color:var(--text);margin-bottom:8px;font-weight:500">AHEM</p>
-                  <div class="form-group"><label>Base URL</label><input id="setAhemUrl" type="text" placeholder="https://..."></div>
-                  <div class="form-group"><label>Domains</label><input id="setAhemDomains" type="text" placeholder="域名 (逗号分隔)"></div>
+
+            <!-- Grok 注册表单 -->
+            <div id="tab-grok" class="tab-content">
+              <div class="card">
+                <h2>Grok 自动化注册</h2>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>代理设置 (可选)</label>
+                    <input type="text" id="grokProxy" placeholder="http://user:pass@host:port">
+                  </div>
+                  <div class="form-group">
+                    <label>并发数量</label>
+                    <input type="number" id="grokCount" value="1" min="1" max="100">
+                  </div>
                 </div>
-                <div>
-                  <p style="font-size:0.85rem;color:var(--text);margin-bottom:8px;font-weight:500">YYDS Mail</p>
-                  <div class="form-group"><label>Base URL</label><input id="setYydsUrl" type="text" placeholder="https://..."></div>
-                  <div class="form-group"><label>API Key</label><input id="setYydsKey" type="password" placeholder="API Key"></div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>指定邮箱 Provider (可选)</label>
+                    <select id="grokMailProvider">
+                      <option value="">默认优先</option>
+                      <option value="ahem">AHEM 临时邮箱</option>
+                      <option value="yydsmail">YYDS Mail</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="reg-actions">
+                  <button class="btn btn-primary" id="btn-grok-start" onclick="startRegistration('grok')">开始批量注册</button>
+                  <button class="btn btn-danger" id="btn-grok-stop" style="display:none;" onclick="stopRegistration('grok')">停止任务</button>
                 </div>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="saveMail()">保存</button>
+            </div>
+
+            <!-- Fireworks 注册表单 -->
+            <div id="tab-fireworks" class="tab-content" style="display:none;">
+              <div class="card">
+                <h2>Fireworks 自动化注册</h2>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>代理设置 (可选)</label>
+                    <input type="text" id="fireworksProxy" placeholder="http://user:pass@host:port">
+                  </div>
+                  <div class="form-group">
+                    <label>并发数量</label>
+                    <input type="number" id="fireworksCount" value="1" min="1" max="100">
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>指定邮箱 Provider (可选)</label>
+                    <select id="fireworksMailProvider">
+                      <option value="">默认优先</option>
+                      <option value="ahem">AHEM 临时邮箱</option>
+                      <option value="yydsmail">YYDS Mail</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="reg-actions">
+                  <button class="btn btn-primary" id="btn-fireworks-start" onclick="startRegistration('fireworks')">开始批量注册</button>
+                  <button class="btn btn-danger" id="btn-fireworks-stop" style="display:none;" onclick="stopRegistration('fireworks')">停止任务</button>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="settings-section section-yellow">
-            <div class="section-header open" onclick="toggleSection(this)">
-              <h3>🌐 代理配置</h3><span class="arrow">▼</span>
-            </div>
-            <div class="section-body open">
-              <div class="form-group"><label>默认代理</label><input id="setProxyDefault" type="text" placeholder="http://user:pass@host:port"></div>
-              <div class="form-group"><label>代理池 (每行一个)</label><textarea id="setProxyPool" placeholder="http://proxy1:port&#10;http://proxy2:port"></textarea></div>
-              <button class="btn btn-primary btn-sm" onclick="saveProxy()">保存</button>
+
+          <!-- 2. 结果面板 -->
+          <div id="panel-results" class="panel">
+            <div class="card" style="margin-bottom: 0;">
+              <h2>注册结果库</h2>
+              <div class="toolbar">
+                <div class="toolbar-left">
+                  <select id="filterPlatform" onchange="renderResults()" style="width:140px;">
+                    <option value="all">所有平台</option>
+                    <option value="grok">Grok</option>
+                    <option value="fireworks">Fireworks</option>
+                  </select>
+                  <button class="btn btn-secondary btn-sm" onclick="exportResults()">导出全部 JSON</button>
+                  <button class="btn btn-secondary btn-sm" onclick="exportResultsTxt()">导出全部 TXT</button>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="clearResults()">清空结果</button>
+              </div>
+
+              <div id="resultsTableContainer">
+                <!-- 动态表格 -->
+              </div>
             </div>
           </div>
-          <div class="settings-section section-red">
-            <div class="section-header open" onclick="toggleSection(this)">
-              <h3>🔒 账号安全</h3><span class="arrow">▼</span>
+
+          <!-- 3. 设置面板 -->
+          <div id="panel-settings" class="panel">
+            <!-- 邮箱设置 -->
+            <div class="section-header" onclick="toggleSection('set-mail')">
+              <h3><span>📬</span> 邮箱服务配置</h3>
+              <span class="arrow-icon">▶</span>
             </div>
-            <div class="section-body open">
-              <p style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">当前用户: <strong id="settingsUser" style="color:var(--text)"></strong></p>
-              <div class="form-group"><label>新用户名</label><input id="setNewUser" type="text" placeholder="留空则不修改"></div>
-              <div class="form-group"><label>新密码</label><input id="setNewPass" type="password" placeholder="留空则不修改（至少 6 位）"></div>
-              <div class="form-group"><label>确认密码</label><input id="setNewPass2" type="password" placeholder="再次输入新密码"></div>
-              <p style="font-size:0.78rem;color:var(--warning);margin-bottom:12px">⚠️ 修改后将自动退出登录</p>
-              <button class="btn btn-danger btn-sm" onclick="changeCreds()">修改</button>
+            <div id="set-mail" class="section-body">
+              <div class="form-group">
+                <label>优先级 (逗号分隔)</label>
+                <input type="text" id="setMailPriority" placeholder="ahem,yydsmail">
+              </div>
+              <div class="form-row">
+                <div style="border: 1px solid var(--border-color); padding:16px; border-radius:var(--radius-md);">
+                  <h4 style="margin-bottom:12px; color:#a78bfa;">AHEM 临时邮箱 (自建)</h4>
+                  <div class="form-group">
+                    <label>AHEM 基础 URL</label>
+                    <input type="text" id="setAhemURL" placeholder="https://mail.jiuuij.de5.net">
+                  </div>
+                  <div class="form-group">
+                    <label>允许域名 (留空自动获取)</label>
+                    <input type="text" id="setAhemDomains" placeholder="jiuuij.de5.net,jiuuij.bond">
+                  </div>
+                </div>
+                <div style="border: 1px solid var(--border-color); padding:16px; border-radius:var(--radius-md);">
+                  <h4 style="margin-bottom:12px; color:var(--warning);">YYDS Mail</h4>
+                  <div class="form-group">
+                    <label>YYDS 基础 URL</label>
+                    <input type="text" id="setYydsURL" placeholder="https://maliapi.215.im">
+                  </div>
+                  <div class="form-group">
+                    <label>YYDS API Key</label>
+                    <input type="password" id="setYydsKey" placeholder="AC-xxxxxx">
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="saveMailSettings()">保存邮箱配置</button>
             </div>
+
+            <!-- 代理设置 -->
+            <div class="section-header" onclick="toggleSection('set-proxy')">
+              <h3><span>🌐</span> 代理与网络配置</h3>
+              <span class="arrow-icon">▶</span>
+            </div>
+            <div id="set-proxy" class="section-body">
+              <div class="form-group">
+                <label>默认代理 URL</label>
+                <input type="text" id="setProxyDefault" placeholder="http://user:pass@host:port">
+              </div>
+              <div class="form-group">
+                <label>代理池 (每行一个)</label>
+                <textarea id="setProxyPool" placeholder="http://proxy1:port&#10;http://proxy2:port"></textarea>
+              </div>
+              <button class="btn btn-primary" onclick="saveProxySettings()">保存代理配置</button>
+            </div>
+
+            <!-- 账号管理 -->
+            <div class="section-header" onclick="toggleSection('set-auth')">
+              <h3><span>🔐</span> 登录凭据管理</h3>
+              <span class="arrow-icon">▶</span>
+            </div>
+            <div id="set-auth" class="section-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>新用户名</label>
+                  <input type="text" id="setNewUsername" placeholder="保留原用户名则留空">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>新密码</label>
+                  <input type="password" id="setNewPassword" placeholder="输入新密码">
+                </div>
+                <div class="form-group">
+                  <label>确认新密码</label>
+                  <input type="password" id="setNewPassword2" placeholder="确认新密码">
+                </div>
+              </div>
+              <p style="font-size:0.8rem; color:var(--error); margin-bottom:16px;">注意: 修改成功后系统会自动销毁当前会话，需要使用新用户名和密码重新登录。</p>
+              <button class="btn btn-danger" onclick="saveAuthSettings()">更新登录凭据</button>
+            </div>
+          </div>
+
+        </main>
+
+        <!-- 4. 固定日志窗口 -->
+        <div class="log-panel" id="logPanel">
+          <div class="log-header" onclick="toggleLogWindow()">
+            <span>📺 实时流日志</span>
+            <div class="log-controls">
+              <button class="btn btn-secondary btn-sm" onclick="clearLogs(event)">清空</button>
+              <span id="logToggleArrow">▼</span>
+            </div>
+          </div>
+          <div class="log-body" id="logBody">
+            <!-- 实时日志输出 -->
           </div>
         </div>
-      </div>
-      <!-- Log Window -->
-      <div class="log-wrap" id="logWrap">
-        <div class="log-header">
-          <span>日志</span>
-          <div class="log-actions">
-            <button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:0.72rem" onclick="clearLog()">清空</button>
-            <button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:0.72rem" id="logToggleBtn" onclick="toggleLog()">▼ 折叠</button>
-          </div>
-        </div>
-        <div class="log-body" id="logBody"></div>
+
       </div>
     </div>
   </div>
-</div>
 
-<script>
-// === State ===
-let token = localStorage.getItem('token') || '';
-let results = JSON.parse(localStorage.getItem('results') || '[]');
-let regAbort = {grok: null, fireworks: null};
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">凭据详情</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()">关闭</button>
+      </div>
+      <div class="modal-body">
+        <pre id="modalContent"></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" onclick="copyModalContent()">复制完整数据</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()">取消</button>
+      </div>
+    </div>
+  </div>
 
-// === Init ===
-document.addEventListener('DOMContentLoaded', () => {
-  if (token) checkAuth(); else showLogin();
-  document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-  document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginPass').focus(); });
-  renderResults();
-});
+  <!-- Core Javascript -->
+  <script>
+    let token = localStorage.getItem('token') || '';
+    let results = [];
+    try {
+      results = JSON.parse(localStorage.getItem('results')) || [];
+    } catch {
+      results = [];
+    }
 
-// === Helpers ===
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
-}
-function showLogin() {
-  document.getElementById('loginPage').style.display = 'flex';
-  document.getElementById('appPage').style.display = 'none';
-}
-function showApp(user) {
-  document.getElementById('loginPage').style.display = 'none';
-  document.getElementById('appPage').style.display = 'flex';
-  document.getElementById('dispUser').textContent = user;
-  document.getElementById('settingsUser').textContent = user;
-  loadSettings();
-}
-async function api(method, path, body) {
-  const opts = { method, headers: {'Content-Type':'application/json'} };
-  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
-  if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(path, opts);
-  if (r.status === 401) { doLogout(); throw new Error('unauthorized'); }
-  return r;
-}
+    const regAbort = { grok: null, fireworks: null };
 
-// === Auth ===
-async function doLogin() {
-  const user = document.getElementById('loginUser').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const err = document.getElementById('loginError');
-  const btn = document.getElementById('loginBtn');
-  if (!user || !pass) { err.textContent = '请输入用户名和密码'; err.style.display = 'block'; return; }
-  btn.disabled = true; btn.textContent = '登录中...';
-  try {
-    const r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:user,password:pass}) });
-    const d = await r.json();
-    if (!r.ok) { err.textContent = d.error || '登录失败'; err.style.display = 'block'; return; }
-    token = d.token; localStorage.setItem('token', token); showApp(user);
-  } catch(e) { err.textContent = '网络错误'; err.style.display = 'block'; }
-  finally { btn.disabled = false; btn.textContent = '登录'; }
-}
-async function checkAuth() {
-  try { const r = await api('GET','/api/auth/me'); if (r.ok) { const d = await r.json(); showApp(d.username); } else showLogin(); }
-  catch { showLogin(); }
-}
-function doLogout() { token = ''; localStorage.removeItem('token'); showLogin(); }
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      if (token) {
+        checkAuth();
+      } else {
+        showLogin();
+      }
 
-// === Navigation ===
-function switchPanel(name) {
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.panel === name));
-  document.getElementById('panelRegister').classList.toggle('active', name === 'register');
-  document.getElementById('panelResults').classList.toggle('active', name === 'results');
-  document.getElementById('panelSettings').classList.toggle('active', name === 'settings');
-  if (name === 'results') renderResults();
-}
-function switchReg(type) {
-  document.querySelectorAll('.sub-tab').forEach(t => t.classList.toggle('active', t.dataset.reg === type));
-  document.getElementById('regGrok').style.display = type === 'grok' ? 'block' : 'none';
-  document.getElementById('regFireworks').style.display = type === 'fireworks' ? 'block' : 'none';
-}
+      // 绑定回车登录
+      document.getElementById('password').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleLogin();
+      });
+    });
 
-// === Log ===
-function addLog(msg) {
-  const body = document.getElementById('logBody');
-  const line = document.createElement('div');
-  line.className = 'log-line';
-  if (msg.includes('[+]') || msg.includes('[OK]')) line.classList.add(msg.includes('[OK]') ? 'log-ok' : 'log-success');
-  else if (msg.includes('[-]')) line.classList.add('log-error');
-  else if (msg.includes('[*]')) line.classList.add('log-info');
-  else if (msg.includes('[!]')) line.classList.add('log-warn');
-  line.textContent = msg;
-  body.appendChild(line);
-  body.scrollTop = body.scrollHeight;
-}
-function clearLog() { document.getElementById('logBody').innerHTML = ''; }
-function toggleLog() {
-  const w = document.getElementById('logWrap');
-  const btn = document.getElementById('logToggleBtn');
-  w.classList.toggle('collapsed');
-  btn.textContent = w.classList.contains('collapsed') ? '▲ 展开' : '▼ 折叠';
-}
+    // Toast 通知
+    function showToast(msg, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.innerHTML = `<span>${type === 'success' ? '✓' : '✗'}</span><span>${msg}</span>`;
+      container.appendChild(toast);
+      
+      setTimeout(() => toast.classList.add('show'), 50);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
 
-// === Register ===
-function startReg(type) {
-  const proxy = document.getElementById(type + 'Proxy').value.trim();
-  const count = parseInt(document.getElementById(type + 'Count').value) || 1;
-  const startBtn = document.getElementById(type + 'StartBtn');
-  const stopBtn = document.getElementById(type + 'StopBtn');
-  const btnText = document.getElementById(type + 'BtnText');
+    // API 通用请求
+    async function apiRequest(method, path, body = null) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
 
-  startBtn.disabled = true;
-  btnText.innerHTML = '<span class="spinner"></span> 注册中...';
-  stopBtn.style.display = 'inline-flex';
+      try {
+        const res = await fetch(path, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : null
+        });
 
-  const body = { count };
-  if (proxy) body.proxy = proxy;
+        if (res.status === 401) {
+          handleLogout();
+          throw new Error('未授权，请重新登录');
+        }
 
-  const ctrl = new AbortController();
-  regAbort[type] = ctrl;
+        return res;
+      } catch (err) {
+        showToast(err.message, 'error');
+        throw err;
+      }
+    }
 
-  let successCount = 0, failCount = 0;
+    // 登录 / 注销
+    async function handleLogin() {
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
 
-  fetch('/api/' + type + '/register', {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
-    body: JSON.stringify(body),
-    signal: ctrl.signal
-  }).then(response => {
-    if (response.status === 401) { doLogout(); return; }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    function read() {
-      reader.read().then(({done, value}) => {
-        if (done) { finish(); return; }
-        buffer += decoder.decode(value, {stream:true});
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-        let evt = '';
-        for (const l of lines) {
-          if (l.startsWith('event: ')) evt = l.slice(7);
-          else if (l.startsWith('data: ')) {
-            const data = l.slice(6);
-            if (evt === 'log') addLog(data);
-            else if (evt === 'result') handleResult(type, data);
+      if (!u || !p) {
+        showToast('请输入用户名和密码', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || '登录失败', 'error');
+          return;
+        }
+
+        token = data.token;
+        localStorage.setItem('token', token);
+        showApp(u);
+        showToast('登录成功', 'success');
+      } catch {
+        showToast('连接登录接口失败', 'error');
+      }
+    }
+
+    function handleLogout() {
+      token = '';
+      localStorage.removeItem('token');
+      showLogin();
+    }
+
+    async function checkAuth() {
+      try {
+        const res = await apiRequest('GET', '/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          showApp(data.username);
+        } else {
+          showLogin();
+        }
+      } catch {
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      document.getElementById('loginPage').style.display = 'flex';
+      document.getElementById('appLayout').style.display = 'none';
+    }
+
+    function showApp(username) {
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('appLayout').style.display = 'flex';
+      document.getElementById('displayUsername').textContent = username;
+      renderResults();
+      loadSettings();
+    }
+
+    // 面板切换
+    function switchPanel(panelId) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+
+      document.getElementById('panel-' + panelId).classList.add('active');
+      document.querySelector(`.nav-link[data-panel="${panelId}"]`).classList.add('active');
+    }
+
+    // Tab 切换
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
+
+      document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+      document.getElementById('tab-' + tabId).style.display = 'block';
+    }
+
+    // 手风琴卡片切换
+    function toggleSection(id) {
+      const header = document.querySelector(`[onclick="toggleSection('${id}')"]`);
+      const body = document.getElementById(id);
+      
+      const isVisible = body.classList.contains('show');
+      
+      document.querySelectorAll('.section-body').forEach(b => b.classList.remove('show'));
+      document.querySelectorAll('.section-header').forEach(h => h.classList.remove('active'));
+
+      if (!isVisible) {
+        body.classList.add('show');
+        header.classList.add('active');
+      }
+    }
+
+    // 折叠日志窗口
+    function toggleLogWindow() {
+      const panel = document.getElementById('logPanel');
+      const arrow = document.getElementById('logToggleArrow');
+      panel.classList.toggle('collapsed');
+      arrow.textContent = panel.classList.contains('collapsed') ? '▲' : '▼';
+    }
+
+    function clearLogs(e) {
+      if (e) e.stopPropagation();
+      document.getElementById('logBody').innerHTML = '';
+    }
+
+    // 写入日志
+    function addLog(text) {
+      const body = document.getElementById('logBody');
+      const line = document.createElement('div');
+      line.className = 'log-line';
+
+      // 着色
+      if (text.includes('[+]')) {
+        line.classList.add('log-success');
+      } else if (text.includes('[-]')) {
+        line.classList.add('log-error');
+      } else if (text.includes('[*]')) {
+        line.classList.add('log-info');
+      } else if (text.includes('[!]')) {
+        line.classList.add('log-warn');
+      } else if (text.includes('[OK]')) {
+        line.classList.add('log-ok');
+      }
+
+      line.textContent = text;
+      body.appendChild(line);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    // 注册任务
+    async function startRegistration(type) {
+      const proxy = document.getElementById(type + 'Proxy').value.trim();
+      const count = parseInt(document.getElementById(type + 'Count').value) || 1;
+      const provider = document.getElementById(type + 'MailProvider').value;
+
+      const startBtn = document.getElementById(`btn-${type}-start`);
+      const stopBtn = document.getElementById(`btn-${type}-stop`);
+
+      startBtn.disabled = true;
+      startBtn.textContent = '运行中...';
+      stopBtn.style.display = 'inline-flex';
+
+      const panel = document.getElementById('logPanel');
+      panel.classList.remove('collapsed');
+      document.getElementById('logToggleArrow').textContent = '▼';
+
+      addLog(`[*] 开启 ${type} 自动化任务，数量: ${count}`);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      const controller = new AbortController();
+      regAbort[type] = controller;
+
+      const bodyData = { count };
+      if (proxy) bodyData.proxy = proxy;
+      if (provider) bodyData.email_provider = provider;
+
+      try {
+        const res = await fetch(`/api/${type}/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify(bodyData),
+          signal: controller.signal
+        });
+
+        if (res.status === 401) {
+          handleLogout();
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          let currentEvent = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+              if (currentEvent === 'log') {
+                addLog(data);
+              } else if (currentEvent === 'result') {
+                try {
+                  const resultObj = JSON.parse(data);
+                  
+                  // 添加到结果缓存
+                  const newResult = {
+                    platform: type,
+                    email: resultObj.email,
+                    status: resultObj.ok ? 'success' : 'failed',
+                    data: resultObj.data || resultObj,
+                    time: new Date().toLocaleString()
+                  };
+                  results.unshift(newResult);
+                  localStorage.setItem('results', JSON.stringify(results));
+                  renderResults();
+
+                  if (resultObj.ok) {
+                    successCount++;
+                  } else {
+                    failCount++;
+                  }
+                } catch (err) {
+                  addLog('[-] 解析注册结果 JSON 失败: ' + err.message);
+                }
+              }
+            }
           }
         }
-        read();
-      }).catch(e => { if (e.name !== 'AbortError') addLog('[-] 连接中断: ' + e.message); finish(); });
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          addLog('[!] 任务已被手动停止');
+        } else {
+          addLog('[-] 异常退出: ' + err.message);
+        }
+      } finally {
+        startBtn.disabled = false;
+        startBtn.textContent = '开始批量注册';
+        stopBtn.style.display = 'none';
+        regAbort[type] = null;
+        addLog(`[OK] 完成: ${successCount} 成功, ${failCount} 失败`);
+        showToast(`任务已结束: ${successCount} 成功, ${failCount} 失败`);
+      }
     }
-    read();
-  }).catch(e => { if (e.name !== 'AbortError') addLog('[-] 连接失败: ' + e.message); finish(); });
 
-  function handleResult(platform, dataStr) {
-    try {
-      const r = JSON.parse(dataStr);
-      const entry = { platform, email: r.email || '', status: r.ok ? 'success' : 'fail', data: r.data || r, time: new Date().toLocaleString('zh-CN') };
-      if (r.ok) successCount++; else failCount++;
-      results.unshift(entry);
-      localStorage.setItem('results', JSON.stringify(results));
-    } catch {}
-  }
-  function finish() {
-    startBtn.disabled = false;
-    btnText.textContent = '开始注册';
-    stopBtn.style.display = 'none';
-    regAbort[type] = null;
-    addLog('[OK] 完成: ' + successCount + ' 成功, ' + failCount + ' 失败');
-  }
-}
-function stopReg(type) {
-  if (regAbort[type]) { regAbort[type].abort(); regAbort[type] = null; }
-}
-
-// === Results ===
-function renderResults() {
-  const filter = document.getElementById('filterPlatform').value;
-  const list = filter === 'all' ? results : results.filter(r => r.platform === filter);
-  const container = document.getElementById('resultsBody');
-  if (!list.length) {
-    container.innerHTML = '<div class="empty-state"><p>暂无注册结果</p></div>';
-    return;
-  }
-  let html = '<table class="results-table"><thead><tr><th>平台</th><th>邮箱</th><th>状态</th><th>凭据</th><th>时间</th><th>操作</th></tr></thead><tbody>';
-  list.forEach((r, i) => {
-    const badgeCls = r.platform === 'grok' ? 'badge-grok' : 'badge-fireworks';
-    const statusCls = r.status === 'success' ? 'badge-success' : 'badge-fail';
-    const credStr = JSON.stringify(r.data || {});
-    const credShort = credStr.length > 20 ? credStr.slice(0, 20) + '...' : credStr;
-    const idx = results.indexOf(r);
-    html += '<tr><td><span class="badge ' + badgeCls + '">' + esc(r.platform) + '</span></td>';
-    html += '<td>' + esc(r.email) + '</td>';
-    html += '<td><span class="badge ' + statusCls + '">' + (r.status === 'success' ? '成功' : '失败') + '</span></td>';
-    html += '<td class="cred-cell">' + esc(credShort) + '</td>';
-    html += '<td style="font-size:0.78rem;color:var(--text2)">' + esc(r.time) + '</td>';
-    html += '<td><button class="btn btn-ghost btn-sm" onclick="copyResult(' + idx + ',this)">复制</button> ';
-    html += '<button class="btn btn-ghost btn-sm" onclick="viewResult(' + idx + ')">查看</button></td></tr>';
-  });
-  html += '</tbody></table>';
-  container.innerHTML = html;
-}
-function copyResult(idx, btn) {
-  const r = results[idx];
-  navigator.clipboard.writeText(JSON.stringify(r.data || r, null, 2)).then(() => {
-    btn.textContent = '已复制 ✓'; btn.style.color = 'var(--success)';
-    setTimeout(() => { btn.textContent = '复制'; btn.style.color = ''; }, 1500);
-  });
-}
-function viewResult(idx) {
-  const r = results[idx];
-  document.getElementById('modal-title').textContent = r.platform + ' - ' + r.email;
-  document.getElementById('modal-body').textContent = JSON.stringify(r.data || r, null, 2);
-  document.getElementById('modal').classList.add('show');
-}
-function closeModal() { document.getElementById('modal').classList.remove('show'); }
-function exportResults() {
-  const blob = new Blob([JSON.stringify(results, null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'results_' + Date.now() + '.json'; a.click();
-}
-function clearResults() {
-  if (!confirm('确定清空所有结果?')) return;
-  results = []; localStorage.setItem('results', '[]'); renderResults();
-}
-
-// === Settings ===
-async function loadSettings() {
-  try {
-    const [mr, pr] = await Promise.all([api('GET','/api/settings/mail'), api('GET','/api/settings/proxy')]);
-    if (mr.ok) {
-      const m = await mr.json();
-      document.getElementById('setProviderPriority').value = m.provider_priority || '';
-      document.getElementById('setAhemUrl').value = (m.ahem && m.ahem.base_url) || '';
-      document.getElementById('setAhemDomains').value = (m.ahem && m.ahem.domains) || '';
-      document.getElementById('setYydsUrl').value = (m.yydsmail && m.yydsmail.base_url) || '';
-      document.getElementById('setYydsKey').value = (m.yydsmail && m.yydsmail.api_key) || '';
+    function stopRegistration(type) {
+      if (regAbort[type]) {
+        regAbort[type].abort();
+      }
     }
-    if (pr.ok) {
-      const p = await pr.json();
-      document.getElementById('setProxyDefault').value = p.default || '';
-      document.getElementById('setProxyPool').value = (p.pool || []).join('\n');
+
+    // 渲染结果表格
+    function renderResults() {
+      const filter = document.getElementById('filterPlatform').value;
+      const filteredList = filter === 'all' ? results : results.filter(r => r.platform === filter);
+      const container = document.getElementById('resultsTableContainer');
+
+      if (filteredList.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>暂无任何注册数据</p></div>';
+        return;
+      }
+
+      let html = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>平台</th>
+              <th>邮箱地址</th>
+              <th>状态</th>
+              <th>凭据预览</th>
+              <th>时间</th>
+              <th style="text-align:right;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      filteredList.forEach((r, i) => {
+        const badgePlat = r.platform === 'grok' ? 'badge-grok' : 'badge-fireworks';
+        const badgeStatus = r.status === 'success' ? 'badge-success' : 'badge-failed';
+        
+        let credStr = '';
+        if (r.data) {
+          if (r.platform === 'fireworks') {
+            credStr = r.data.apikey || '';
+          } else {
+            credStr = r.data.auth_token || '';
+          }
+        }
+        if (!credStr) credStr = JSON.stringify(r.data || {});
+
+        const rawIndex = results.indexOf(r);
+
+        html += `
+          <tr>
+            <td><span class="badge ${badgePlat}">${r.platform}</span></td>
+            <td style="font-weight:500;">${esc(r.email)}</td>
+            <td><span class="badge ${badgeStatus}">${r.status === 'success' ? '成功' : '失败'}</span></td>
+            <td class="cell-cred">${esc(credStr)}</td>
+            <td style="font-size:0.8rem; color:var(--text-muted);">${r.time}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-secondary btn-sm" onclick="copyCreds(${rawIndex}, this)">复制</button>
+              <button class="btn btn-secondary btn-sm" onclick="viewCreds(${rawIndex})">详情</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
-  } catch {}
-}
-async function saveMail() {
-  const body = {
-    provider_priority: document.getElementById('setProviderPriority').value,
-    ahem: { base_url: document.getElementById('setAhemUrl').value, domains: document.getElementById('setAhemDomains').value },
-    yydsmail: { base_url: document.getElementById('setYydsUrl').value, api_key: document.getElementById('setYydsKey').value }
-  };
-  try { await api('POST','/api/settings/mail', body); toast('已保存'); } catch { toast('保存失败'); }
-}
-async function saveProxy() {
-  const pool = document.getElementById('setProxyPool').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  const body = { default: document.getElementById('setProxyDefault').value, pool };
-  try { await api('POST','/api/settings/proxy', body); toast('已保存'); } catch { toast('保存失败'); }
-}
-async function changeCreds() {
-  const nu = document.getElementById('setNewUser').value.trim();
-  const np = document.getElementById('setNewPass').value;
-  const np2 = document.getElementById('setNewPass2').value;
-  if (!nu && !np) { toast('请输入新用户名或新密码'); return; }
-  if (np && np !== np2) { toast('两次密码不一致'); return; }
-  if (np && np.length < 6) { toast('密码至少 6 位'); return; }
-  if (!confirm('确定修改？修改后需重新登录。')) return;
-  const body = {};
-  if (nu) body.new_username = nu;
-  if (np) body.new_password = np;
-  try {
-    const r = await api('POST','/api/auth/credentials', body);
-    const d = await r.json();
-    if (d.logout) { alert('已修改，请重新登录'); doLogout(); }
-    else if (d.error) toast(d.error);
-  } catch { toast('修改失败'); }
-}
-function toggleSection(el) {
-  el.classList.toggle('open');
-  const body = el.nextElementSibling;
-  body.classList.toggle('open');
-}
-</script>
+
+    function esc(s) {
+      if (!s) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function copyCreds(idx, btn) {
+      const r = results[idx];
+      let str = '';
+      if (r.data) {
+        // 如果是 fireworks 优先提取 key，如果是 grok 优先提取 sso token
+        if (r.platform === 'fireworks') {
+          str = r.data.apikey || JSON.stringify(r.data, null, 2);
+        } else {
+          str = r.data.auth_token || JSON.stringify(r.data, null, 2);
+        }
+      } else {
+        str = JSON.stringify(r, null, 2);
+      }
+
+      navigator.clipboard.writeText(str).then(() => {
+        btn.textContent = '已复制 ✓';
+        btn.style.color = 'var(--success)';
+        setTimeout(() => {
+          btn.textContent = '复制';
+          btn.style.color = '';
+        }, 1500);
+      });
+    }
+
+    function viewCreds(idx) {
+      const r = results[idx];
+      document.getElementById('modalTitle').textContent = `${r.platform.toUpperCase()} - ${r.email}`;
+      document.getElementById('modalContent').textContent = JSON.stringify(r.data || r, null, 2);
+      document.getElementById('detailModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('detailModal').classList.remove('show');
+    }
+
+    function copyModalContent() {
+      const text = document.getElementById('modalContent').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('已复制到剪贴板', 'success');
+      });
+    }
+
+    function exportResults() {
+      if (results.length === 0) {
+        showToast('暂无数据可以导出', 'error');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `reg_results_${Date.now()}.json`;
+      a.click();
+    }
+
+    function exportResultsTxt() {
+      if (results.length === 0) {
+        showToast('暂无数据可以导出', 'error');
+        return;
+      }
+      
+      let text = '';
+      results.forEach(r => {
+        if (r.status !== 'success') return;
+        if (r.platform === 'fireworks') {
+          text += `${r.email}----${r.data.password || ''}----${r.data.apikey || ''}\n`;
+        } else if (r.platform === 'grok') {
+          text += `${r.email}----${r.data.password || ''}----${r.data.auth_token || ''}\n`;
+        }
+      });
+
+      if (!text) {
+        showToast('无成功账号凭据可供导出', 'error');
+        return;
+      }
+
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `reg_keys_${Date.now()}.txt`;
+      a.click();
+    }
+
+    function clearResults() {
+      if (results.length === 0) return;
+      if (!confirm('确定要清空所有注册结果历史吗？此操作不可撤销。')) return;
+      results = [];
+      localStorage.setItem('results', '[]');
+      renderResults();
+      showToast('历史结果已清空', 'success');
+    }
+
+    // === Settings ===
+    async function loadSettings() {
+      try {
+        const [resMail, resProxy] = await Promise.all([
+          apiRequest('GET', '/api/settings/mail'),
+          apiRequest('GET', '/api/settings/proxy')
+        ]);
+
+        if (resMail.ok) {
+          const mail = await resMail.json();
+          document.getElementById('setMailPriority').value = mail.provider_priority || '';
+          document.getElementById('setAhemURL').value = mail.ahem?.base_url || '';
+          document.getElementById('setAhemDomains').value = mail.ahem?.domains || '';
+          document.getElementById('setYydsURL').value = mail.yydsmail?.base_url || '';
+          document.getElementById('setYydsKey').value = mail.yydsmail?.api_key || '';
+        }
+
+        if (resProxy.ok) {
+          const proxy = await resProxy.json();
+          document.getElementById('setProxyDefault').value = proxy.default || '';
+          document.getElementById('setProxyPool').value = (proxy.pool || []).join('\n');
+        }
+      } catch (err) {
+        console.error('加载系统设置失败:', err);
+      }
+    }
+
+    async function saveMailSettings() {
+      const body = {
+        provider_priority: document.getElementById('setMailPriority').value.trim(),
+        ahem: {
+          base_url: document.getElementById('setAhemURL').value.trim(),
+          domains: document.getElementById('setAhemDomains').value.trim()
+        },
+        yydsmail: {
+          base_url: document.getElementById('setYydsURL').value.trim(),
+          api_key: document.getElementById('setYydsKey').value
+        }
+      };
+
+      try {
+        const res = await apiRequest('POST', '/api/settings/mail', body);
+        if (res.ok) {
+          showToast('邮箱配置已保存并生效', 'success');
+          loadSettings(); // 重新加载打码遮罩后的 key
+        }
+      } catch {}
+    }
+
+    async function saveProxySettings() {
+      const poolText = document.getElementById('setProxyPool').value;
+      const pool = poolText.split('\n').map(s => s.trim()).filter(Boolean);
+
+      const body = {
+        default: document.getElementById('setProxyDefault').value.trim(),
+        pool: pool
+      };
+
+      try {
+        const res = await apiRequest('POST', '/api/settings/proxy', body);
+        if (res.ok) {
+          showToast('代理配置已保存并生效', 'success');
+        }
+      } catch {}
+    }
+
+    async function saveAuthSettings() {
+      const newU = document.getElementById('setNewUsername').value.trim();
+      const newP = document.getElementById('setNewPassword').value;
+      const newP2 = document.getElementById('setNewPassword2').value;
+
+      if (!newU && !newP) {
+        showToast('请填写要修改的用户名或密码', 'error');
+        return;
+      }
+
+      if (newP && newP !== newP2) {
+        showToast('两次输入的新密码不一致', 'error');
+        return;
+      }
+
+      if (newP && newP.length < 6) {
+        showToast('新密码长度至少为 6 位', 'error');
+        return;
+      }
+
+      if (!confirm('修改账户信息后需要使用新凭据重新登录，确定继续吗？')) return;
+
+      const body = {};
+      if (newU) body.new_username = newU;
+      if (newP) body.new_password = newP;
+
+      try {
+        const res = await apiRequest('POST', '/api/auth/credentials', body);
+        const data = await res.json();
+        if (data.logout) {
+          alert('账户信息已更新，请使用新凭据重新登录');
+          handleLogout();
+        } else if (data.error) {
+          showToast(data.error, 'error');
+        }
+      } catch {}
+    }
+  </script>
 </body>
 </html>
