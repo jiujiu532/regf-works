@@ -13,12 +13,12 @@ import (
 
 // DomainBlacklist 平台级邮箱域名黑名单管理器
 // 当某个邮箱域名导致注册失败（HTTP 400 等）时，将其拉黑避免重复使用
-// 特性：平台隔离、自动过期、持久化到 JSON 文件
+// 特性：平台隔离、永久黑名单、持久化到 JSON 文件
 type DomainBlacklist struct {
 	platform string                 // "grok" 或 "fireworks"
 	domains  map[string]time.Time   // domain → banned time
 	mu       sync.RWMutex
-	ttl      time.Duration          // 黑名单条目过期时间（默认 2 小时）
+	ttl      time.Duration          // 保留字段（兼容性），永久黑名单模式下不使用
 	filePath string                 // 持久化文件路径
 }
 
@@ -28,9 +28,9 @@ type allBlacklists struct {
 	Fireworks map[string]time.Time `json:"fireworks"`
 }
 
-// NewDomainBlacklist 创建域名黑名单实例
+// NewDomainBlacklist 创建域名黑名单实例（永久黑名单模式）
 // platform: "grok" 或 "fireworks"
-// ttl: 黑名单条目过期时间（推荐 2 小时）
+// ttl: 保留参数（兼容性），实际为永久黑名单不过期
 // filePath: 持久化文件路径（如 "data/blacklist.json"）
 func NewDomainBlacklist(platform string, ttl time.Duration, filePath string) *DomainBlacklist {
 	b := &DomainBlacklist{
@@ -68,7 +68,7 @@ func (b *DomainBlacklist) Ban(domain string) {
 	go b.save()
 }
 
-// IsBanned 检查域名是否在黑名单中（自动清理过期条目）
+// IsBanned 检查域名是否在黑名单中
 func (b *DomainBlacklist) IsBanned(domain string) bool {
 	domain = normalizeDomain(domain)
 	if domain == "" {
@@ -76,37 +76,20 @@ func (b *DomainBlacklist) IsBanned(domain string) bool {
 	}
 
 	b.mu.RLock()
-	bannedAt, ok := b.domains[domain]
+	_, ok := b.domains[domain]
 	b.mu.RUnlock()
 
-	if !ok {
-		return false
-	}
-
-	// 检查是否过期
-	if time.Since(bannedAt) > b.ttl {
-		b.mu.Lock()
-		delete(b.domains, domain)
-		b.mu.Unlock()
-		log.Debug().Str("platform", b.platform).Str("domain", domain).Msg("黑名单条目已过期并清除")
-		return false
-	}
-
-	return true
+	return ok
 }
 
 // GetAll 获取所有黑名单条目（供 API 查询）
-// 返回 map[domain]bannedTime
 func (b *DomainBlacklist) GetAll() map[string]time.Time {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	result := make(map[string]time.Time, len(b.domains))
 	for domain, bannedAt := range b.domains {
-		// 只返回未过期的条目
-		if time.Since(bannedAt) <= b.ttl {
-			result[domain] = bannedAt
-		}
+		result[domain] = bannedAt
 	}
 	return result
 }
@@ -123,23 +106,9 @@ func (b *DomainBlacklist) Clear() {
 	go b.save()
 }
 
-// CleanExpired 清理所有过期条目
+// CleanExpired 清理所有过期条目（永久黑名单模式下此函数为空操作）
 func (b *DomainBlacklist) CleanExpired() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	now := time.Now()
-	cleaned := 0
-	for domain, bannedAt := range b.domains {
-		if now.Sub(bannedAt) > b.ttl {
-			delete(b.domains, domain)
-			cleaned++
-		}
-	}
-
-	if cleaned > 0 {
-		log.Debug().Str("platform", b.platform).Int("count", cleaned).Msg("已清理过期黑名单条目")
-	}
+	// 永久黑名单模式，不清理过期条目
 }
 
 // save 保存黑名单到 JSON 文件（异步调用，内部处理错误）
@@ -230,14 +199,11 @@ func (b *DomainBlacklist) load() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// 只加载未过期的条目
-	now := time.Now()
+	// 加载所有条目（永久黑名单）
 	loaded := 0
 	for domain, bannedAt := range platformData {
-		if now.Sub(bannedAt) <= b.ttl {
-			b.domains[domain] = bannedAt
-			loaded++
-		}
+		b.domains[domain] = bannedAt
+		loaded++
 	}
 
 	if loaded > 0 {
@@ -247,13 +213,13 @@ func (b *DomainBlacklist) load() error {
 	return nil
 }
 
-// autoCleanAndSave 定期清理过期条目并保存（后台任务）
+// autoCleanAndSave 定期保存（后台任务）
+// 永久黑名单模式：不清理过期条目，只定期保存
 func (b *DomainBlacklist) autoCleanAndSave() {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		b.CleanExpired()
 		b.save()
 	}
 }
