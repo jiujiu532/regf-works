@@ -224,10 +224,13 @@
             <div class="card-title" data-i="grokReg">Grok Registration</div>
             <div class="grid-2">
               <div class="field"><label data-i="proxy">Proxy (optional)</label><input class="inp" id="grokProxy" placeholder="http://user:pass@host:port"></div>
-              <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="grokCount" value="1" min="1"></div>
+              <div class="field"><label data-i="emailProvider">Email provider</label>
+                <select class="inp" id="grokMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option></select>
+              </div>
             </div>
-            <div class="field"><label data-i="emailProvider">Email provider</label>
-              <select class="inp" id="grokMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option></select>
+            <div class="grid-2">
+              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="grokCount" value="1" min="1"></div>
+              <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="grokConcurrency" value="1" min="1"></div>
             </div>
             <div class="actions">
               <button class="btn btn-fill" id="btn-grok-go" onclick="startReg('grok')" data-i="startReg">Start registration</button>
@@ -238,10 +241,13 @@
             <div class="card-title" data-i="fireworksReg">Fireworks Registration</div>
             <div class="grid-2">
               <div class="field"><label data-i="proxy">Proxy (optional)</label><input class="inp" id="fireworksProxy" placeholder="http://user:pass@host:port"></div>
-              <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="fireworksCount" value="1" min="1"></div>
+              <div class="field"><label data-i="emailProvider">Email provider</label>
+                <select class="inp" id="fireworksMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option></select>
+              </div>
             </div>
-            <div class="field"><label data-i="emailProvider">Email provider</label>
-              <select class="inp" id="fireworksMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option></select>
+            <div class="grid-2">
+              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="fireworksCount" value="1" min="1"></div>
+              <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="fireworksConcurrency" value="1" min="1"></div>
             </div>
             <div class="actions">
               <button class="btn btn-fill" id="btn-fireworks-go" onclick="startReg('fireworks')" data-i="startReg">Start registration</button>
@@ -333,7 +339,7 @@ const i18n={
     loginSub:'Automation Console',username:'Username',password:'Password',signin:'Sign in',
     register:'Register',results:'Results',settings:'Settings',logout:'Logout',
     grokReg:'Grok Registration',fireworksReg:'Fireworks Registration',
-    proxy:'Proxy (optional)',concurrency:'Concurrency',emailProvider:'Email provider',auto:'Auto',
+    proxy:'Proxy (optional)',totalCount:'Total accounts',concurrency:'Concurrency',emailProvider:'Email provider',auto:'Auto',
     startReg:'Start registration',stop:'Stop',
     total:'Total',success:'Success',failed:'Failed',all:'All',search:'Search...',
     clear:'Clear',platform:'Platform',email:'Email',password2:'Password',credential:'Credential',
@@ -350,7 +356,7 @@ const i18n={
     loginSub:'自动化控制台',username:'用户名',password:'密码',signin:'登录',
     register:'注册',results:'结果',settings:'设置',logout:'退出',
     grokReg:'Grok 注册',fireworksReg:'Fireworks 注册',
-    proxy:'代理 (可选)',concurrency:'并发数',emailProvider:'邮箱提供商',auto:'自动',
+    proxy:'代理 (可选)',totalCount:'注册总数',concurrency:'并发数',emailProvider:'邮箱提供商',auto:'自动',
     startReg:'开始注册',stop:'停止',
     total:'总数',success:'成功',failed:'失败',all:'全部',search:'搜索...',
     clear:'清空',platform:'平台',email:'邮箱',password2:'密码',credential:'凭据',
