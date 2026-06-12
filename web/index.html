@@ -204,8 +204,9 @@
       <div class="tab" data-v="settings" onclick="nav('settings')">Settings</div>
     </div>
     <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm" onclick="toggleLang()" id="langBtn" style="font-size:13px">中文</button>
       <span id="dispUser">admin</span>
-      <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()" data-i="logout">Logout</button>
     </div>
   </div>
 
@@ -325,8 +326,48 @@
 </div>
 
 <script>
-let tk=localStorage.getItem('tk')||'',R=JSON.parse(localStorage.getItem('R')||'[]'),AB={grok:null,fireworks:null};
-if(tk)chk();else document.getElementById('loginPage').style.display='flex';
+const i18n={
+  en:{
+    loginSub:'Automation Console',username:'Username',password:'Password',signin:'Sign in',
+    register:'Register',results:'Results',settings:'Settings',logout:'Logout',
+    grokReg:'Grok Registration',fireworksReg:'Fireworks Registration',
+    proxy:'Proxy (optional)',concurrency:'Concurrency',emailProvider:'Email provider',auto:'Auto',
+    startReg:'Start registration',stop:'Stop',
+    total:'Total',success:'Success',failed:'Failed',all:'All',search:'Search...',
+    clear:'Clear',platform:'Platform',email:'Email',password2:'Password',credential:'Credential',
+    status:'Status',action:'Action',copy:'Copy',copied:'Copied',clearConfirm:'Clear all results?',noData:'No data',
+    mail:'Mail',providerPri:'Provider priority',ahemUrl:'AHEM URL',ahemDomains:'AHEM Domains',
+    yydsUrl:'YYDS URL',yydsKey:'YYDS API Key',saveMailCfg:'Save mail config',mailSaved:'Mail config saved',
+    proxy2:'Proxy',defaultProxy:'Default proxy',poolLine:'Pool (one per line)',saveProxyCfg:'Save proxy config',proxySaved:'Proxy config saved',
+    security:'Security',newUsername:'New username',newPassword:'New password',confirm:'Confirm',
+    updateCred:'Update credentials',pwdMismatch:'Password mismatch',
+    terminal:'Terminal',close:'Close',enterCred:'Enter credentials',done:'Done'
+  },
+  zh:{
+    loginSub:'自动化控制台',username:'用户名',password:'密码',signin:'登录',
+    register:'注册',results:'结果',settings:'设置',logout:'退出',
+    grokReg:'Grok 注册',fireworksReg:'Fireworks 注册',
+    proxy:'代理 (可选)',concurrency:'并发数',emailProvider:'邮箱提供商',auto:'自动',
+    startReg:'开始注册',stop:'停止',
+    total:'总数',success:'成功',failed:'失败',all:'全部',search:'搜索...',
+    clear:'清空',platform:'平台',email:'邮箱',password2:'密码',credential:'凭据',
+    status:'状态',action:'操作',copy:'复制',copied:'已复制',clearConfirm:'确定清空所有结果？',noData:'无数据',
+    mail:'邮箱',providerPri:'提供商优先级',ahemUrl:'AHEM URL',ahemDomains:'AHEM 域名',
+    yydsUrl:'YYDS URL',yydsKey:'YYDS API Key',saveMailCfg:'保存邮箱配置',mailSaved:'邮箱配置已保存',
+    proxy2:'代理',defaultProxy:'默认代理',poolLine:'代理池 (每行一个)',saveProxyCfg:'保存代理配置',proxySaved:'代理配置已保存',
+    security:'安全',newUsername:'新用户名',newPassword:'新密码',confirm:'确认',
+    updateCred:'更新凭据',pwdMismatch:'密码不匹配',
+    terminal:'终端',close:'关闭',enterCred:'请输入凭据',done:'完成'
+  }
+};
+let lang=localStorage.getItem('lang')||'en',tk=localStorage.getItem('tk')||'',R=JSON.parse(localStorage.getItem('R')||'[]'),AB={grok:null,fireworks:null};
+function t(k){return i18n[lang][k]||k}
+function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('lang',lang);location.reload()}
+function applyI18n(){
+  document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
+  $('langBtn').textContent=lang==='en'?'中文':'EN';
+}
+if(tk)chk();else{document.getElementById('loginPage').style.display='flex';applyI18n()}
 document.getElementById('password').onkeydown=e=>{if(e.key==='Enter')doLogin()};
 
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
@@ -339,14 +380,14 @@ async function api(method,path,body){
 /* Auth */
 async function doLogin(){
   const u=$('username').value.trim(),p=$('password').value;
-  if(!u||!p)return toast('Enter credentials');
+  if(!u||!p)return toast(t('enterCred'));
   const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
   const d=await r.json();if(!r.ok)return toast(d.error||'Failed');
   tk=d.token;localStorage.setItem('tk',tk);enter(u);
 }
-function doLogout(){tk='';localStorage.removeItem('tk');$('app').classList.remove('show');$('loginPage').style.display='flex'}
-async function chk(){try{const r=await api('GET','/api/auth/me');if(r.ok)enter((await r.json()).username);else doLogout()}catch{doLogout()}}
-function enter(u){$('loginPage').style.display='none';$('app').classList.add('show');$('dispUser').textContent=u;stats();render();loadCfg()}
+function doLogout(){tk='';localStorage.removeItem('tk');$('app').classList.remove('show');$('loginPage').style.display='flex';applyI18n()}
+async function chk(){try{const r=await api('GET','/api/auth/me');if(r.ok){enter((await r.json()).username);applyI18n()}else doLogout()}catch{doLogout()}}
+function enter(u){$('loginPage').style.display='none';$('app').classList.add('show');$('dispUser').textContent=u;applyI18n();stats();render();loadCfg()}
 
 /* Nav */
 function nav(v){document.querySelectorAll('.topbar-nav .tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));['register','results','settings'].forEach(k=>$('v-'+k).classList.toggle('hide',k!==v))}
@@ -365,7 +406,7 @@ async function startReg(type){
     const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
     while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';let ev='';
       for(const l of ls){if(l.startsWith('event:'))ev=l.slice(6).trim();else if(l.startsWith('data:')){const d=l.slice(5).trim();if(ev==='log')addLog(d);else if(ev==='result'){const o=JSON.parse(d);R.unshift({platform:type,email:o.email,status:o.ok?'success':'failed',data:o.data||o,time:new Date().toLocaleString()});localStorage.setItem('R',JSON.stringify(R));o.ok?ok++:fail++;stats();render()}}}}
-    addLog(`> Done: ${ok} ok, ${fail} fail`);toast(`Done: ${ok} success`);
+    addLog(`> ${t('done')}: ${ok} ok, ${fail} fail`);toast(`${t('done')}: ${ok} ${t('success').toLowerCase()}`);
   }catch(e){addLog(`> ${e.name==='AbortError'?'Aborted':e.message}`)}
   finally{$(`btn-${type}-go`).classList.remove('hide');$(`btn-${type}-stop`).classList.add('hide')}
 }
@@ -377,13 +418,13 @@ function render(){
   const p=$('fPlat').value,q=$('fSearch').value.toLowerCase(),tb=$('tbody');tb.innerHTML='';
   let f=R;if(p!=='all')f=f.filter(r=>r.platform===p);if(q)f=f.filter(r=>(r.email||'').toLowerCase().includes(q)||JSON.stringify(r.data).toLowerCase().includes(q));
   f.forEach(r=>{const tr=document.createElement('tr');const c=r.platform==='fireworks'?(r.data.apikey||'-'):(r.data.auth_token||'-');const i=R.indexOf(r);
-    tr.innerHTML=`<td><span class="pill-badge ${r.platform==='grok'?'grok':'fw'}">${r.platform}</span></td><td style="font-weight:500">${esc(r.email||'-')}</td><td class="mono">${esc(r.data?.password||'-')}</td><td class="mono">${esc(c.length>22?c.slice(0,22)+'…':c)}</td><td><span class="pill-badge ${r.status==='success'?'ok':'fail'}">${r.status}</span></td><td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="cpRow(${i})">Copy</button></td>`;
+    tr.innerHTML=`<td><span class="pill-badge ${r.platform==='grok'?'grok':'fw'}">${r.platform}</span></td><td style="font-weight:500">${esc(r.email||'-')}</td><td class="mono">${esc(r.data?.password||'-')}</td><td class="mono">${esc(c.length>22?c.slice(0,22)+'…':c)}</td><td><span class="pill-badge ${r.status==='success'?'ok':'fail'}">${r.status}</span></td><td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="cpRow(${i})">${t('copy')}</button></td>`;
     tb.appendChild(tr)})
 }
-function cpRow(i){const r=R[i];const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');navigator.clipboard.writeText(`${r.email}----${r.data.password||''}----${c}`);toast('Copied')}
-function clearAll(){if(!confirm('Clear all results?'))return;R=[];localStorage.setItem('R','[]');stats();render()}
+function cpRow(i){const r=R[i];const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');navigator.clipboard.writeText(`${r.email}----${r.data.password||''}----${c}`);toast(t('copied'))}
+function clearAll(){if(!confirm(t('clearConfirm')))return;R=[];localStorage.setItem('R','[]');stats();render()}
 function expJSON(){dl(JSON.stringify(R,null,2),'application/json','results.json')}
-function expTXT(){const t=R.filter(r=>r.status==='success').map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return`${r.email}----${r.data.password||''}----${c}`}).join('\n');if(!t)return toast('No data');dl(t,'text/plain','keys.txt')}
+function expTXT(){const t=R.filter(r=>r.status==='success').map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return`${r.email}----${r.data.password||''}----${c}`}).join('\n');if(!t)return toast(i18n[lang].noData);dl(t,'text/plain','keys.txt')}
 function dl(c,t,n){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click()}
 
 /* Settings */
@@ -392,9 +433,9 @@ async function loadCfg(){
     if(rm.ok){const m=await rm.json();$('sPri').value=m.provider_priority||'';$('sAU').value=m.ahem?.base_url||'';$('sAD').value=m.ahem?.domains||'';$('sYU').value=m.yydsmail?.base_url||'';$('sYK').value=m.yydsmail?.api_key||''}
     if(rp.ok){const p=await rp.json();$('sPD').value=p.default||'';$('sPP').value=(p.pool||[]).join('\n')}}catch{}
 }
-async function saveMail(){await api('POST','/api/settings/mail',{provider_priority:$('sPri').value,ahem:{base_url:$('sAU').value,domains:$('sAD').value},yydsmail:{base_url:$('sYU').value,api_key:$('sYK').value}});toast('Mail config saved')}
-async function saveProxy(){await api('POST','/api/settings/proxy',{default:$('sPD').value,pool:$('sPP').value.split('\n').filter(Boolean)});toast('Proxy config saved')}
-async function saveAuth(){const np=$('sNP').value;if(np&&np!==$('sNP2').value)return toast('Password mismatch');const r=await api('POST','/api/auth/credentials',{new_username:$('sNU').value,new_password:np});if((await r.json()).logout)doLogout()}
+async function saveMail(){await api('POST','/api/settings/mail',{provider_priority:$('sPri').value,ahem:{base_url:$('sAU').value,domains:$('sAD').value},yydsmail:{base_url:$('sYU').value,api_key:$('sYK').value}});toast(t('mailSaved'))}
+async function saveProxy(){await api('POST','/api/settings/proxy',{default:$('sPD').value,pool:$('sPP').value.split('\n').filter(Boolean)});toast(t('proxySaved'))}
+async function saveAuth(){const np=$('sNP').value;if(np&&np!==$('sNP2').value)return toast(t('pwdMismatch'));const r=await api('POST','/api/auth/credentials',{new_username:$('sNU').value,new_password:np});if((await r.json()).logout)doLogout()}
 
 function $(id){return document.getElementById(id)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
