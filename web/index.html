@@ -407,12 +407,12 @@ function addLog(t){const d=document.createElement('div');d.className='l '+(t.inc
 
 /* Reg */
 async function startReg(type){
-  const count=parseInt($(type+'Count').value)||1,proxy=$(type+'Proxy').value,prov=$(type+'Mail').value;
+  const count=parseInt($(type+'Count').value)||1,concurrency=parseInt($(type+'Concurrency').value)||1,proxy=$(type+'Proxy').value,prov=$(type+'Mail').value;
   $(`btn-${type}-go`).classList.add('hide');$(`btn-${type}-stop`).classList.remove('hide');
-  $('logDrawer').classList.add('open');addLog(`> Starting ${type} ×${count}`);
+  $('logDrawer').classList.add('open');addLog(`> Starting ${type} ×${count} (concurrency=${concurrency})`);
   AB[type]=new AbortController();let ok=0,fail=0;
   try{
-    const r=await fetch(`/api/${type}/register`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:JSON.stringify({count,proxy,email_provider:prov}),signal:AB[type].signal});
+    const r=await fetch(`/api/${type}/register`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:JSON.stringify({count,concurrency,proxy,email_provider:prov}),signal:AB[type].signal});
     const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
     while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';let ev='';
       for(const l of ls){if(l.startsWith('event:'))ev=l.slice(6).trim();else if(l.startsWith('data:')){const d=l.slice(5).trim();if(ev==='log')addLog(d);else if(ev==='result'){const o=JSON.parse(d);R.unshift({platform:type,email:o.email,status:o.ok?'success':'failed',data:o.data||o,time:new Date().toLocaleString()});localStorage.setItem('R',JSON.stringify(R));o.ok?ok++:fail++;stats();render()}}}}

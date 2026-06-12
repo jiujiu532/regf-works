@@ -19,6 +19,7 @@ import (
 type GrokRegisterRequest struct {
 	Proxy         string `json:"proxy,omitempty"`
 	Count         int    `json:"count,omitempty"`
+	Concurrency   int    `json:"concurrency,omitempty"`
 	EmailProvider string `json:"email_provider,omitempty"`
 }
 
@@ -45,6 +46,15 @@ func (h *GrokHandler) Register(c *gin.Context) {
 	count := req.Count
 	if count <= 0 {
 		count = 1
+	}
+
+	// 并发数
+	concurrency := req.Concurrency
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+	if concurrency > 20 {
+		concurrency = 20
 	}
 
 	// 构建 config：基础配置 + 请求覆盖
@@ -102,6 +112,8 @@ func (h *GrokHandler) Register(c *gin.Context) {
 
 	// 启动注册 goroutine
 	resultCh := make(chan *common.RegisterResult, count)
+	semaphore := make(chan struct{}, concurrency) // 并发控制信号量
+
 	go func() {
 		defer close(logCh)
 		defer close(resultCh)
@@ -112,19 +124,29 @@ func (h *GrokHandler) Register(c *gin.Context) {
 			default:
 			}
 
-			// 从代理池轮询
-			taskProxy := proxy
-			if pool := h.cfg.GetProxyPool(); len(pool) > 0 {
-				taskProxy = pool[i%len(pool)]
-			}
+			semaphore <- struct{}{} // 获取信号量
+			go func(idx int) {
+				defer func() { <-semaphore }() // 释放信号量
 
-			opts := grok.RegisterOpts{
-				Proxy:  taskProxy,
-				Config: workerCfg,
-				LogCh:  logCh,
-			}
-			result := grok.Register(ctx, opts)
-			resultCh <- result
+				// 从代理池轮询
+				taskProxy := proxy
+				if pool := h.cfg.GetProxyPool(); len(pool) > 0 {
+					taskProxy = pool[idx%len(pool)]
+				}
+
+				opts := grok.RegisterOpts{
+					Proxy:  taskProxy,
+					Config: workerCfg,
+					LogCh:  logCh,
+				}
+				result := grok.Register(ctx, opts)
+				resultCh <- result
+			}(i)
+		}
+
+		// 等待所有任务完成
+		for i := 0; i < concurrency && i < count; i++ {
+			semaphore <- struct{}{}
 		}
 	}()
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -93,17 +92,17 @@ func main() {
 	}
 
 	// 嵌入式前端静态文件
-	staticFS, _ := fs.Sub(web.StaticFS, ".")
+	indexHTML, _ := web.StaticFS.ReadFile("index.html")
 	r.GET("/", func(c *gin.Context) {
-		c.FileFromFS("index.html", http.FS(staticFS))
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	})
 	// SPA fallback：非 API 路径都返回 index.html
 	r.NoRoute(func(c *gin.Context) {
-		c.FileFromFS("index.html", http.FS(staticFS))
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	})
 
 	// 启动 HTTP 服务
-	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	addr := fmt.Sprintf("0.0.0.0:%d", cfg.Server.Port)
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      r,
