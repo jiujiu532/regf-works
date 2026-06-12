@@ -8,6 +8,7 @@ import (
 
 	grokpkg "github.com/grok-fireworks-reg/internal/grok"
 	fwpkg "github.com/grok-fireworks-reg/internal/fireworks"
+	orpkg "github.com/grok-fireworks-reg/internal/openrouter"
 )
 
 // BlacklistEntry 黑名单条目（API 返回格式）
@@ -38,7 +39,19 @@ func ClearGrokBlacklist(c *gin.Context) {
 // ClearFireworksBlacklist DELETE /api/blacklist/fireworks
 func ClearFireworksBlacklist(c *gin.Context) {
 	fwpkg.GetBlacklist().Clear()
-	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "Fireworks blacklist cleared"})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "Fireworks 黑名单已清空"})
+}
+
+// GetOpenRouterBlacklist GET /api/blacklist/openrouter
+func GetOpenRouterBlacklist(c *gin.Context) {
+	entries := formatBlacklist(orpkg.GetBlacklist().GetAll())
+	c.JSON(http.StatusOK, gin.H{"platform": "openrouter", "domains": entries, "count": len(entries)})
+}
+
+// ClearOpenRouterBlacklist DELETE /api/blacklist/openrouter
+func ClearOpenRouterBlacklist(c *gin.Context) {
+	orpkg.GetBlacklist().Clear()
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "OpenRouter blacklist cleared"})
 }
 
 func formatBlacklist(all map[string]time.Time) []BlacklistEntry {

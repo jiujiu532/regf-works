@@ -12,13 +12,14 @@ import (
 
 // Config 全局配置
 type Config struct {
-	Server    ServerConfig    `mapstructure:"server"`
-	Auth      AuthConfig      `mapstructure:"auth"`
-	Proxy     ProxyConfig     `mapstructure:"proxy"`
-	Mail      MailConfig      `mapstructure:"mail"`
-	Turnstile TurnstileConfig `mapstructure:"turnstile"`
-	Grok      GrokConfig      `mapstructure:"grok"`
-	Fireworks FireworksConfig `mapstructure:"fireworks"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Auth       AuthConfig       `mapstructure:"auth"`
+	Proxy      ProxyConfig      `mapstructure:"proxy"`
+	Mail       MailConfig       `mapstructure:"mail"`
+	Turnstile  TurnstileConfig  `mapstructure:"turnstile"`
+	Grok       GrokConfig       `mapstructure:"grok"`
+	Fireworks  FireworksConfig  `mapstructure:"fireworks"`
+	OpenRouter OpenRouterConfig `mapstructure:"openrouter"`
 }
 
 // AuthConfig 认证配置
@@ -86,6 +87,14 @@ type FireworksConfig struct {
 	MaxConcurrent int    `mapstructure:"max_concurrent"`
 }
 
+type OpenRouterConfig struct {
+	ServiceURL    string `mapstructure:"service_url"`
+	MaxConcurrent int    `mapstructure:"max_concurrent"`
+	SolverType    string `mapstructure:"solver_type"`
+	SolverAPI     string `mapstructure:"solver_api"`
+	YesCaptchaKey string `mapstructure:"yescaptcha_key"`
+}
+
 // Load 加载配置文件
 func Load(cfgFile string) *Config {
 	if cfgFile != "" {
@@ -149,6 +158,27 @@ func (c *Config) ToGrokConfig() common.Config {
 func (c *Config) ToFireworksConfig() common.Config {
 	return common.Config{
 		"fireworks_reg_url":      c.Fireworks.ServiceURL,
+		"yydsmail_base_url":      c.Mail.YYDS.BaseURL,
+		"yydsmail_api_key":       c.Mail.YYDS.APIKey,
+		"ahem_base_url":          c.Mail.Ahem.BaseURL,
+		"ahem_domains":           c.Mail.Ahem.Domains,
+		"gptmail_base_url":       c.Mail.GPTMail.BaseURL,
+		"gptmail_api_key":        c.Mail.GPTMail.APIKey,
+		"moemail_base_url":       c.Mail.MoeMail.BaseURL,
+		"moemail_api_key":        c.Mail.MoeMail.APIKey,
+		"moemail_domains":        c.Mail.MoeMail.Domains,
+		"moemail_expiry_time":    fmt.Sprintf("%d", c.Mail.MoeMail.ExpiryTime),
+		"email_provider_priority": c.Mail.ProviderPriority,
+	}
+}
+
+// ToOpenRouterConfig 转换为 openrouter worker 使用的 common.Config
+func (c *Config) ToOpenRouterConfig() common.Config {
+	return common.Config{
+		"openrouter_reg_url":     c.OpenRouter.ServiceURL,
+		"openrouter_solver_type": c.OpenRouter.SolverType,
+		"openrouter_solver_api":  c.OpenRouter.SolverAPI,
+		"yescaptcha_key":         c.OpenRouter.YesCaptchaKey,
 		"yydsmail_base_url":      c.Mail.YYDS.BaseURL,
 		"yydsmail_api_key":       c.Mail.YYDS.APIKey,
 		"ahem_base_url":          c.Mail.Ahem.BaseURL,

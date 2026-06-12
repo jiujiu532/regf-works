@@ -137,6 +137,7 @@
     .pill-badge.fail{background:var(--error-bg);color:var(--error)}
     .pill-badge.grok{background:var(--bg);color:var(--text);border:1px solid var(--border)}
     .pill-badge.fw{background:var(--warn-bg);color:var(--warn)}
+    .pill-badge.or{background:#eef0ff;color:#5b5fc7}
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:12px}
     .toolbar-left{display:flex;gap:10px;align-items:center}
 
@@ -221,6 +222,7 @@
           <div class="pill-tabs">
             <div class="pill on" data-t="grok" onclick="tab('grok')">Grok</div>
             <div class="pill" data-t="fireworks" onclick="tab('fireworks')">Fireworks</div>
+            <div class="pill" data-t="openrouter" onclick="tab('openrouter')">OpenRouter</div>
           </div>
           <div id="t-grok">
             <div class="card-title" data-i="grokReg">Grok Registration</div>
@@ -256,6 +258,23 @@
               <button class="btn btn-danger hide" id="btn-fireworks-stop" onclick="stopReg('fireworks')" data-i="stop">Stop</button>
             </div>
           </div>
+          <div id="t-openrouter" class="hide">
+            <div class="card-title" data-i="openrouterReg">OpenRouter Registration</div>
+            <div class="grid-2">
+              <div class="field"><label data-i="proxy">Proxy (optional)</label><input class="inp" id="openrouterProxy" placeholder="http://user:pass@host:port"></div>
+              <div class="field"><label data-i="emailProvider">Email provider</label>
+                <select class="inp" id="openrouterMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option><option value="gptmail">GPTMail</option><option value="moemail">MoeMail</option></select>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="openrouterCount" value="1" min="1"></div>
+              <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="openrouterConcurrency" value="1" min="1"></div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-fill" id="btn-openrouter-go" onclick="startReg('openrouter')" data-i="startReg">Start registration</button>
+              <button class="btn btn-danger hide" id="btn-openrouter-stop" onclick="stopReg('openrouter')" data-i="stop">Stop</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -270,7 +289,7 @@
         <div class="card" style="padding:24px">
           <div class="toolbar">
             <div class="toolbar-left">
-              <select class="inp" id="fPlat" onchange="render()" style="width:140px"><option value="all" data-i="all">All</option><option value="grok">Grok</option><option value="fireworks">Fireworks</option></select>
+              <select class="inp" id="fPlat" onchange="render()" style="width:140px"><option value="all" data-i="all">All</option><option value="grok">Grok</option><option value="fireworks">Fireworks</option><option value="openrouter">OpenRouter</option></select>
               <select class="inp" id="fStatus" onchange="render()" style="width:140px"><option value="all" data-i="all">All</option><option value="success" data-i="success">Success</option><option value="failed" data-i="failed">Failed</option></select>
             </div>
             <div style="display:flex;gap:8px">
@@ -327,6 +346,12 @@
           <div id="fireworksBlacklistContent" style="max-height:200px;overflow-y:auto;color:var(--text-2);font-size:14px"></div>
           <button class="btn btn-outline btn-sm" onclick="clearBlacklist('fireworks')" data-i="clearBlacklist" style="margin-top:12px">清空黑名单</button>
         </div>
+
+        <div class="card">
+          <div class="card-title" data-i="openrouterBlacklist">OpenRouter 域名黑名单</div>
+          <div id="openrouterBlacklistContent" style="max-height:200px;overflow-y:auto;color:var(--text-2);font-size:14px"></div>
+          <button class="btn btn-outline btn-sm" onclick="clearBlacklist('openrouter')" data-i="clearBlacklist" style="margin-top:12px">清空黑名单</button>
+        </div>
       </div>
 
       <!-- ═ Settings ═ -->
@@ -369,7 +394,7 @@ const i18n={
   en:{
     loginSub:'Automation Console',username:'Username',password:'Password',signin:'Sign in',
     register:'Register',results:'Results',mail:'Mail',settings:'Settings',logout:'Logout',
-    grokReg:'Grok Registration',fireworksReg:'Fireworks Registration',
+    grokReg:'Grok Registration',fireworksReg:'Fireworks Registration',openrouterReg:'OpenRouter Registration',
     proxy:'Proxy (optional)',totalCount:'Total accounts',concurrency:'Concurrency',emailProvider:'Email provider',auto:'Auto',
     startReg:'Start registration',stop:'Stop',
     total:'Total',success:'Success',failed:'Failed',successRate:'Rate',all:'All',
@@ -379,7 +404,7 @@ const i18n={
     yydsUrl:'YYDS URL',yydsKey:'YYDS API Key',gptmailUrl:'GPTMail URL',gptmailKey:'GPTMail API Key',
     moemailUrl:'MoeMail URL',moemailKey:'MoeMail API Key',moemailDomains:'MoeMail Domains',moemailExpiry:'MoeMail Expiry (ms)',
     saveMailCfg:'Save mail config',mailSaved:'Mail config saved',
-    grokBlacklist:'Grok Domain Blacklist',fireworksBlacklist:'Fireworks Domain Blacklist',
+    grokBlacklist:'Grok Domain Blacklist',fireworksBlacklist:'Fireworks Domain Blacklist',openrouterBlacklist:'OpenRouter Domain Blacklist',
     clearBlacklist:'Clear Blacklist',noBanned:'No banned domains',bannedAgo:'banned',
     proxy2:'Proxy',defaultProxy:'Default proxy',poolLine:'Pool (one per line)',saveProxyCfg:'Save proxy config',proxySaved:'Proxy config saved',
     security:'Security',newUsername:'New username',newPassword:'New password',confirm:'Confirm',
@@ -390,7 +415,7 @@ const i18n={
   zh:{
     loginSub:'自动化控制台',username:'用户名',password:'密码',signin:'登录',
     register:'注册',results:'结果',mail:'邮箱',settings:'设置',logout:'退出',
-    grokReg:'Grok 注册',fireworksReg:'Fireworks 注册',
+    grokReg:'Grok 注册',fireworksReg:'Fireworks 注册',openrouterReg:'OpenRouter 注册',
     proxy:'代理 (可选)',totalCount:'注册总数',concurrency:'并发数',emailProvider:'邮箱提供商',auto:'自动',
     startReg:'开始注册',stop:'停止',
     total:'总数',success:'成功',failed:'失败',successRate:'成功率',all:'全部',
@@ -400,7 +425,7 @@ const i18n={
     yydsUrl:'YYDS URL',yydsKey:'YYDS API Key',gptmailUrl:'GPTMail URL',gptmailKey:'GPTMail API Key',
     moemailUrl:'MoeMail URL',moemailKey:'MoeMail API Key',moemailDomains:'MoeMail 域名',moemailExpiry:'MoeMail 过期时间 (毫秒)',
     saveMailCfg:'保存邮箱配置',mailSaved:'邮箱配置已保存',
-    grokBlacklist:'Grok 域名黑名单',fireworksBlacklist:'Fireworks 域名黑名单',
+    grokBlacklist:'Grok 域名黑名单',fireworksBlacklist:'Fireworks 域名黑名单',openrouterBlacklist:'OpenRouter 域名黑名单',
     clearBlacklist:'清空黑名单',noBanned:'暂无黑名单域名',bannedAgo:'前拉黑',
     proxy2:'代理',defaultProxy:'默认代理',poolLine:'代理池 (每行一个)',saveProxyCfg:'保存代理配置',proxySaved:'代理配置已保存',
     security:'安全',newUsername:'新用户名',newPassword:'新密码',confirm:'确认',
@@ -440,7 +465,7 @@ function enter(u){$('loginPage').style.display='none';$('app').classList.add('sh
 
 /* Nav */
 function nav(v){document.querySelectorAll('.topbar-nav .tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));['register','results','mail','settings'].forEach(k=>$('v-'+k).classList.toggle('hide',k!==v));if(v==='mail')loadBlacklists()}
-function tab(t){document.querySelectorAll('.pill').forEach(e=>e.classList.toggle('on',e.dataset.t===t));$('t-grok').classList.toggle('hide',t!=='grok');$('t-fireworks').classList.toggle('hide',t!=='fireworks')}
+function tab(t){document.querySelectorAll('.pill').forEach(e=>e.classList.toggle('on',e.dataset.t===t));$('t-grok').classList.toggle('hide',t!=='grok');$('t-fireworks').classList.toggle('hide',t!=='fireworks');$('t-openrouter').classList.toggle('hide',t!=='openrouter')}
 function toggleLog(){$('logDrawer').classList.toggle('open')}
 function addLog(t){const d=document.createElement('div');d.className='l '+(t.includes('[+]')||t.includes('[OK]')?'ok':t.includes('[-]')?'err':'info');d.textContent=t;$('logBody').appendChild(d);$('logBody').scrollTop=$('logBody').scrollHeight}
 
@@ -469,18 +494,21 @@ function stats(){
   const rate=total>0?Math.round(ok/total*100):0;
   const grok=R.filter(r=>r.platform==='grok');
   const fw=R.filter(r=>r.platform==='fireworks');
+  const or=R.filter(r=>r.platform==='openrouter');
   const grokOk=grok.filter(r=>r.status==='success').length;
   const fwOk=fw.filter(r=>r.status==='success').length;
+  const orOk=or.filter(r=>r.status==='success').length;
   const grokRate=grok.length>0?Math.round(grokOk/grok.length*100):0;
   const fwRate=fw.length>0?Math.round(fwOk/fw.length*100):0;
+  const orRate=or.length>0?Math.round(orOk/or.length*100):0;
   $('s-total').textContent=total;
   $('s-ok').textContent=ok;
   $('s-fail').textContent=fail;
   $('s-rate').textContent=rate+'%';
-  $('s-total-sub').textContent=`Grok ${grok.length} / Fireworks ${fw.length}`;
-  $('s-ok-sub').textContent=`Grok ${grokOk} / Fireworks ${fwOk}`;
-  $('s-fail-sub').textContent=`Grok ${grok.length-grokOk} / Fireworks ${fw.length-fwOk}`;
-  $('s-rate-sub').textContent=`Grok ${grokRate}% / Fireworks ${fwRate}%`;
+  $('s-total-sub').textContent=`Grok ${grok.length} / FW ${fw.length} / OR ${or.length}`;
+  $('s-ok-sub').textContent=`Grok ${grokOk} / FW ${fwOk} / OR ${orOk}`;
+  $('s-fail-sub').textContent=`Grok ${grok.length-grokOk} / FW ${fw.length-fwOk} / OR ${or.length-orOk}`;
+  $('s-rate-sub').textContent=`Grok ${grokRate}% / FW ${fwRate}% / OR ${orRate}%`;
 }
 function getFiltered(){
   const p=$('fPlat').value,s=$('fStatus').value;
@@ -489,16 +517,16 @@ function getFiltered(){
 }
 function render(){
   const f=getFiltered(),tb=$('tbody');tb.innerHTML='';
-  f.forEach(r=>{const tr=document.createElement('tr');const c=r.platform==='fireworks'?(r.data.apikey||'-'):(r.data.auth_token||'-');const i=R.indexOf(r);
-    tr.innerHTML=`<td><span class="pill-badge ${r.platform==='grok'?'grok':'fw'}">${r.platform}</span></td><td style="font-weight:500">${esc(r.email||'-')}</td><td class="mono">${esc(r.data?.password||'-')}</td><td class="mono">${esc(c.length>22?c.slice(0,22)+'…':c)}</td><td><span class="pill-badge ${r.status==='success'?'ok':'fail'}">${r.status}</span></td><td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="cpRow(${i})">${t('copy')}</button></td>`;
+  f.forEach(r=>{const tr=document.createElement('tr');const c=r.platform==='fireworks'?(r.data.apikey||'-'):r.platform==='openrouter'?(r.data.api_key||'-'):(r.data.auth_token||'-');const i=R.indexOf(r);const bc=r.platform==='grok'?'grok':r.platform==='fireworks'?'fw':'or';
+    tr.innerHTML=`<td><span class="pill-badge ${bc}">${r.platform}</span></td><td style="font-weight:500">${esc(r.email||'-')}</td><td class="mono">${esc(r.data?.password||'-')}</td><td class="mono">${esc(c.length>22?c.slice(0,22)+'…':c)}</td><td><span class="pill-badge ${r.status==='success'?'ok':'fail'}">${r.status}</span></td><td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="cpRow(${i})">${t('copy')}</button></td>`;
     tb.appendChild(tr)})
 }
-function cpRow(i){const r=R[i];const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');navigator.clipboard.writeText(`${r.email}----${r.data.password||''}----${c}`);toast(t('copied'))}
+function cpRow(i){const r=R[i];const c=r.platform==='fireworks'?(r.data.apikey||''):r.platform==='openrouter'?(r.data.api_key||''):(r.data.auth_token||'');navigator.clipboard.writeText(`${r.email}----${r.data.password||''}----${c}`);toast(t('copied'))}
 function clearAll(){if(!confirm(t('clearConfirm')))return;R=[];localStorage.setItem('R','[]');stats();render()}
 function expAccount(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>`${r.email}----${r.data.password||''}`).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','accounts.txt')}
-function expCred(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return c}).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','credentials.txt')}
+function expCred(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):r.platform==='openrouter'?(r.data.api_key||''):(r.data.auth_token||'');return c}).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','credentials.txt')}
 function expJSON(){dl(JSON.stringify(getFiltered(),null,2),'application/json','results.json')}
-function expTXT(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return`${r.email}----${r.data.password||''}----${c}`}).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','keys.txt')}
+function expTXT(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):r.platform==='openrouter'?(r.data.api_key||''):(r.data.auth_token||'');return`${r.email}----${r.data.password||''}----${c}`}).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','keys.txt')}
 function dl(c,t,n){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click()}
 
 /* Settings */
@@ -514,9 +542,10 @@ async function saveAuth(){const np=$('sNP').value;if(np&&np!==$('sNP2').value)re
 /* Blacklist */
 async function loadBlacklists(){
   try{
-    const[rg,rf]=await Promise.all([api('GET','/api/blacklist/grok'),api('GET','/api/blacklist/fireworks')]);
+    const[rg,rf,ro]=await Promise.all([api('GET','/api/blacklist/grok'),api('GET','/api/blacklist/fireworks'),api('GET','/api/blacklist/openrouter')]);
     if(rg.ok){const d=await rg.json();renderBlacklist('grokBlacklistContent',d.domains||[])}
     if(rf.ok){const d=await rf.json();renderBlacklist('fireworksBlacklistContent',d.domains||[])}
+    if(ro.ok){const d=await ro.json();renderBlacklist('openrouterBlacklistContent',d.domains||[])}
   }catch(e){console.error('loadBlacklists error',e)}
 }
 function renderBlacklist(elId,domains){

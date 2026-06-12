@@ -57,6 +57,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(cfg)
 	grokHandler := handler.NewGrokHandler(cfg)
 	fireworksHandler := handler.NewFireworksHandler(cfg)
+	openrouterHandler := handler.NewOpenRouterHandler(cfg)
 	settingsHandler := handler.NewSettingsHandler(cfg)
 
 	// API 路由
@@ -65,9 +66,10 @@ func main() {
 		// 无需认证的路由
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"status":    "ok",
-				"grok":      "ready",
-				"fireworks": "ready",
+				"status":     "ok",
+				"grok":       "ready",
+				"fireworks":  "ready",
+				"openrouter": "ready",
 			})
 		})
 		api.POST("/auth/login", authHandler.Login)
@@ -80,6 +82,7 @@ func main() {
 			protected.POST("/auth/credentials", authHandler.ChangeCredentials)
 			protected.POST("/grok/register", grokHandler.Register)
 			protected.POST("/fireworks/register", fireworksHandler.Register)
+			protected.POST("/openrouter/register", openrouterHandler.Register)
 
 			settings := protected.Group("/settings")
 			{
@@ -93,8 +96,10 @@ func main() {
 			{
 				blacklist.GET("/grok", handler.GetGrokBlacklist)
 				blacklist.GET("/fireworks", handler.GetFireworksBlacklist)
+				blacklist.GET("/openrouter", handler.GetOpenRouterBlacklist)
 				blacklist.DELETE("/grok", handler.ClearGrokBlacklist)
 				blacklist.DELETE("/fireworks", handler.ClearFireworksBlacklist)
+				blacklist.DELETE("/openrouter", handler.ClearOpenRouterBlacklist)
 			}
 		}
 	}

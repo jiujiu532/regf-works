@@ -54,3 +54,10 @@ grok:
 fireworks:
   service_url: "http://127.0.0.1:5000"
   max_concurrent: 10
+
+openrouter:
+  service_url: "http://127.0.0.1:5001"
+  max_concurrent: 10
+  solver_type: "selfhost"           # selfhost 或 yescaptcha
+  solver_api: "http://localhost:5072"
+  yescaptcha_key: ""                # YesCaptcha API Key（可选）
