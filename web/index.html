@@ -269,7 +269,7 @@
           <div class="toolbar">
             <div class="toolbar-left">
               <select class="inp" id="fPlat" onchange="render()" style="width:140px"><option value="all" data-i="all">All</option><option value="grok">Grok</option><option value="fireworks">Fireworks</option></select>
-              <input class="inp" id="fSearch" placeholder="Search..." oninput="render()" style="width:180px">
+              <select class="inp" id="fStatus" onchange="render()" style="width:140px"><option value="all" data-i="all">All</option><option value="success" data-i="success">Success</option><option value="failed" data-i="failed">Failed</option></select>
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-outline btn-sm" onclick="expAccount()" data-i="expAccount">Account</button>
@@ -370,7 +370,7 @@ const i18n={
     grokReg:'Grok Registration',fireworksReg:'Fireworks Registration',
     proxy:'Proxy (optional)',totalCount:'Total accounts',concurrency:'Concurrency',emailProvider:'Email provider',auto:'Auto',
     startReg:'Start registration',stop:'Stop',
-    total:'Total',success:'Success',failed:'Failed',all:'All',search:'Search...',
+    total:'Total',success:'Success',failed:'Failed',all:'All',
     clear:'Clear',platform:'Platform',email:'Email',password2:'Password',credential:'Credential',
     status:'Status',action:'Action',copy:'Copy',copied:'Copied',clearConfirm:'Clear all results?',noData:'No data',
     providerPri:'Provider priority',ahemUrl:'AHEM URL',ahemDomains:'AHEM Domains',
@@ -391,7 +391,7 @@ const i18n={
     grokReg:'Grok 注册',fireworksReg:'Fireworks 注册',
     proxy:'代理 (可选)',totalCount:'注册总数',concurrency:'并发数',emailProvider:'邮箱提供商',auto:'自动',
     startReg:'开始注册',stop:'停止',
-    total:'总数',success:'成功',failed:'失败',all:'全部',search:'搜索...',
+    total:'总数',success:'成功',failed:'失败',all:'全部',
     clear:'清空',platform:'平台',email:'邮箱',password2:'密码',credential:'凭据',
     status:'状态',action:'操作',copy:'复制',copied:'已复制',clearConfirm:'确定清空所有结果？',noData:'无数据',
     providerPri:'提供商优先级',ahemUrl:'AHEM URL',ahemDomains:'AHEM 域名',
@@ -409,7 +409,7 @@ const i18n={
 };
 let lang=localStorage.getItem('lang')||'en',tk=localStorage.getItem('tk')||'',R=JSON.parse(localStorage.getItem('R')||'[]'),AB={grok:null,fireworks:null};
 function t(k){return i18n[lang][k]||k}
-function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('lang',lang);$('langBtn').textContent=lang==='en'?'中文':'EN';applyI18n();$('fSearch').placeholder=t('search')}
+function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('lang',lang);$('langBtn').textContent=lang==='en'?'中文':'EN';applyI18n()}
 function applyI18n(){
   document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
   $('langBtn').textContent=lang==='en'?'中文':'EN';
@@ -461,19 +461,23 @@ function stopReg(t){if(AB[t])AB[t].abort()}
 
 /* Results */
 function stats(){const ok=R.filter(r=>r.status==='success').length;$('s-total').textContent=R.length;$('s-ok').textContent=ok;$('s-fail').textContent=R.length-ok}
+function getFiltered(){
+  const p=$('fPlat').value,s=$('fStatus').value;
+  let f=R;if(p!=='all')f=f.filter(r=>r.platform===p);if(s!=='all')f=f.filter(r=>r.status===s);
+  return f;
+}
 function render(){
-  const p=$('fPlat').value,q=$('fSearch').value.toLowerCase(),tb=$('tbody');tb.innerHTML='';
-  let f=R;if(p!=='all')f=f.filter(r=>r.platform===p);if(q)f=f.filter(r=>(r.email||'').toLowerCase().includes(q)||JSON.stringify(r.data).toLowerCase().includes(q));
+  const f=getFiltered(),tb=$('tbody');tb.innerHTML='';
   f.forEach(r=>{const tr=document.createElement('tr');const c=r.platform==='fireworks'?(r.data.apikey||'-'):(r.data.auth_token||'-');const i=R.indexOf(r);
     tr.innerHTML=`<td><span class="pill-badge ${r.platform==='grok'?'grok':'fw'}">${r.platform}</span></td><td style="font-weight:500">${esc(r.email||'-')}</td><td class="mono">${esc(r.data?.password||'-')}</td><td class="mono">${esc(c.length>22?c.slice(0,22)+'…':c)}</td><td><span class="pill-badge ${r.status==='success'?'ok':'fail'}">${r.status}</span></td><td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="cpRow(${i})">${t('copy')}</button></td>`;
     tb.appendChild(tr)})
 }
 function cpRow(i){const r=R[i];const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');navigator.clipboard.writeText(`${r.email}----${r.data.password||''}----${c}`);toast(t('copied'))}
 function clearAll(){if(!confirm(t('clearConfirm')))return;R=[];localStorage.setItem('R','[]');stats();render()}
-function expAccount(){const t=R.filter(r=>r.status==='success').map(r=>`${r.email}----${r.data.password||''}`).join('\n');if(!t)return toast(i18n[lang].noData);dl(t,'text/plain','accounts.txt')}
-function expCred(){const t=R.filter(r=>r.status==='success').map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return c}).join('\n');if(!t)return toast(i18n[lang].noData);dl(t,'text/plain','credentials.txt')}
-function expJSON(){dl(JSON.stringify(R,null,2),'application/json','results.json')}
-function expTXT(){const t=R.filter(r=>r.status==='success').map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return`${r.email}----${r.data.password||''}----${c}`}).join('\n');if(!t)return toast(i18n[lang].noData);dl(t,'text/plain','keys.txt')}
+function expAccount(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>`${r.email}----${r.data.password||''}`).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','accounts.txt')}
+function expCred(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return c}).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','credentials.txt')}
+function expJSON(){dl(JSON.stringify(getFiltered(),null,2),'application/json','results.json')}
+function expTXT(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):(r.data.auth_token||'');return`${r.email}----${r.data.password||''}----${c}`}).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','keys.txt')}
 function dl(c,t,n){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click()}
 
 /* Settings */
