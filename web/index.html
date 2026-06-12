@@ -227,14 +227,14 @@
           <div id="t-grok">
             <div class="card-title" data-i="grokReg">Grok Registration</div>
             <div class="grid-2">
-              <div class="field"><label data-i="proxy">Proxy (optional)</label><input class="inp" id="grokProxy" placeholder="http://user:pass@host:port"></div>
               <div class="field"><label data-i="emailProvider">Email provider</label>
                 <select class="inp" id="grokMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option><option value="gptmail">GPTMail</option><option value="moemail">MoeMail</option></select>
               </div>
+              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="grokCount" value="1" min="1"></div>
             </div>
             <div class="grid-2">
-              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="grokCount" value="1" min="1"></div>
               <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="grokConcurrency" value="1" min="1"></div>
+              <div class="field"></div>
             </div>
             <div class="actions">
               <button class="btn btn-fill" id="btn-grok-go" onclick="startReg('grok')" data-i="startReg">Start registration</button>
@@ -244,14 +244,14 @@
           <div id="t-fireworks" class="hide">
             <div class="card-title" data-i="fireworksReg">Fireworks Registration</div>
             <div class="grid-2">
-              <div class="field"><label data-i="proxy">Proxy (optional)</label><input class="inp" id="fireworksProxy" placeholder="http://user:pass@host:port"></div>
               <div class="field"><label data-i="emailProvider">Email provider</label>
                 <select class="inp" id="fireworksMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option><option value="gptmail">GPTMail</option><option value="moemail">MoeMail</option></select>
               </div>
+              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="fireworksCount" value="1" min="1"></div>
             </div>
             <div class="grid-2">
-              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="fireworksCount" value="1" min="1"></div>
               <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="fireworksConcurrency" value="1" min="1"></div>
+              <div class="field"></div>
             </div>
             <div class="actions">
               <button class="btn btn-fill" id="btn-fireworks-go" onclick="startReg('fireworks')" data-i="startReg">Start registration</button>
@@ -261,14 +261,14 @@
           <div id="t-openrouter" class="hide">
             <div class="card-title" data-i="openrouterReg">OpenRouter Registration</div>
             <div class="grid-2">
-              <div class="field"><label data-i="proxy">Proxy (optional)</label><input class="inp" id="openrouterProxy" placeholder="http://user:pass@host:port"></div>
               <div class="field"><label data-i="emailProvider">Email provider</label>
                 <select class="inp" id="openrouterMail"><option value="" data-i="auto">Auto</option><option value="ahem">AHEM</option><option value="yydsmail">YYDS</option><option value="gptmail">GPTMail</option><option value="moemail">MoeMail</option></select>
               </div>
+              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="openrouterCount" value="1" min="1"></div>
             </div>
             <div class="grid-2">
-              <div class="field"><label data-i="totalCount">Total accounts</label><input class="inp" type="number" id="openrouterCount" value="1" min="1"></div>
               <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="openrouterConcurrency" value="1" min="1"></div>
+              <div class="field"></div>
             </div>
             <div class="actions">
               <button class="btn btn-fill" id="btn-openrouter-go" onclick="startReg('openrouter')" data-i="startReg">Start registration</button>
@@ -471,12 +471,12 @@ function addLog(t){const d=document.createElement('div');d.className='l '+(t.inc
 
 /* Reg */
 async function startReg(type){
-  const count=parseInt($(type+'Count').value)||1,concurrency=parseInt($(type+'Concurrency').value)||1,proxy=$(type+'Proxy').value,prov=$(type+'Mail').value;
+  const count=parseInt($(type+'Count').value)||1,concurrency=parseInt($(type+'Concurrency').value)||1,prov=$(type+'Mail').value;
   $(`btn-${type}-go`).classList.add('hide');$(`btn-${type}-stop`).classList.remove('hide');
   $('logDrawer').classList.add('open');addLog(`> Starting ${type} ×${count} (concurrency=${concurrency})`);
   AB[type]=new AbortController();let ok=0,fail=0;
   try{
-    const r=await fetch(`/api/${type}/register`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:JSON.stringify({count,concurrency,proxy,email_provider:prov}),signal:AB[type].signal});
+    const r=await fetch(`/api/${type}/register`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:JSON.stringify({count,concurrency,proxy:'',email_provider:prov}),signal:AB[type].signal});
     const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
     while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';let ev='';
       for(const l of ls){if(l.startsWith('event:'))ev=l.slice(6).trim();else if(l.startsWith('data:')){const d=l.slice(5).trim();if(ev==='log')addLog(d);else if(ev==='result'){const o=JSON.parse(d);R.unshift({platform:type,email:o.email,status:o.ok?'success':'failed',data:o.data||o,time:new Date().toLocaleString()});localStorage.setItem('R',JSON.stringify(R));o.ok?ok++:fail++;stats();render()}}}}
