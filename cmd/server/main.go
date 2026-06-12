@@ -18,6 +18,7 @@ import (
 	"github.com/grok-fireworks-reg/internal/config"
 	"github.com/grok-fireworks-reg/internal/handler"
 	"github.com/grok-fireworks-reg/internal/middleware"
+	"github.com/grok-fireworks-reg/internal/common"
 	"github.com/grok-fireworks-reg/web"
 )
 
@@ -53,12 +54,16 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// 初始化结果存储
+	resultStorage := common.NewResultStorage("data/results.json")
+
 	// 注册处理器
 	authHandler := handler.NewAuthHandler(cfg)
-	grokHandler := handler.NewGrokHandler(cfg)
-	fireworksHandler := handler.NewFireworksHandler(cfg)
-	openrouterHandler := handler.NewOpenRouterHandler(cfg)
+	grokHandler := handler.NewGrokHandler(cfg, resultStorage)
+	fireworksHandler := handler.NewFireworksHandler(cfg, resultStorage)
+	openrouterHandler := handler.NewOpenRouterHandler(cfg, resultStorage)
 	settingsHandler := handler.NewSettingsHandler(cfg)
+	resultsHandler := handler.NewResultsHandler(resultStorage)
 
 	// API 路由
 	api := r.Group("/api")
@@ -91,6 +96,10 @@ func main() {
 				settings.GET("/proxy", settingsHandler.GetProxySettings)
 				settings.POST("/proxy", settingsHandler.UpdateProxySettings)
 			}
+
+			// 结果管理
+			protected.GET("/results", resultsHandler.GetResults)
+			protected.DELETE("/results", resultsHandler.ClearResults)
 
 			blacklist := protected.Group("/blacklist")
 			{

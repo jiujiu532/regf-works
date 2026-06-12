@@ -434,7 +434,7 @@ const i18n={
     expAccount:'账号密码',expCred:'凭据'
   }
 };
-let lang=localStorage.getItem('lang')||'en',tk=localStorage.getItem('tk')||'',R=JSON.parse(localStorage.getItem('R')||'[]'),AB={grok:null,fireworks:null};
+let lang=localStorage.getItem('lang')||'en',tk=localStorage.getItem('tk')||'',R=[],AB={grok:null,fireworks:null};
 function t(k){return i18n[lang][k]||k}
 function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('lang',lang);$('langBtn').textContent=lang==='en'?'中文':'EN';applyI18n()}
 function applyI18n(){
@@ -461,7 +461,14 @@ async function doLogin(){
 }
 function doLogout(){tk='';localStorage.removeItem('tk');$('app').classList.remove('show');$('loginPage').style.display='flex';applyI18n()}
 async function chk(){try{const r=await api('GET','/api/auth/me');if(r.ok){enter((await r.json()).username);applyI18n()}else doLogout()}catch{doLogout()}}
-function enter(u){$('loginPage').style.display='none';$('app').classList.add('show');$('dispUser').textContent=u;applyI18n();stats();render();loadCfg();loadBlacklists()}
+function enter(u){$('loginPage').style.display='none';$('app').classList.add('show');$('dispUser').textContent=u;applyI18n();loadResults();loadCfg();loadBlacklists()}
+
+async function loadResults(){
+  try{
+    const r=await api('GET','/api/results');
+    if(r.ok){R=await r.json();if(!Array.isArray(R))R=[];stats();render()}
+  }catch(e){console.error('加载结果失败',e)}
+}
 
 /* Nav */
 function nav(v){document.querySelectorAll('.topbar-nav .tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));['register','results','mail','settings'].forEach(k=>$('v-'+k).classList.toggle('hide',k!==v));if(v==='mail')loadBlacklists()}
@@ -479,7 +486,7 @@ async function startReg(type){
     const r=await fetch(`/api/${type}/register`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:JSON.stringify({count,concurrency,proxy:'',email_provider:prov}),signal:AB[type].signal});
     const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
     while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';let ev='';
-      for(const l of ls){if(l.startsWith('event:'))ev=l.slice(6).trim();else if(l.startsWith('data:')){const d=l.slice(5).trim();if(ev==='log')addLog(d);else if(ev==='result'){const o=JSON.parse(d);R.unshift({platform:type,email:o.email,status:o.ok?'success':'failed',data:o.data||o,time:new Date().toLocaleString()});localStorage.setItem('R',JSON.stringify(R));o.ok?ok++:fail++;stats();render()}}}}
+      for(const l of ls){if(l.startsWith('event:'))ev=l.slice(6).trim();else if(l.startsWith('data:')){const d=l.slice(5).trim();if(ev==='log')addLog(d);else if(ev==='result'){const o=JSON.parse(d);R.unshift(o);o.ok?ok++:fail++;stats();render()}}}}
     addLog(`> ${t('done')}: ${ok} ok, ${fail} fail`);toast(`${t('done')}: ${ok} ${t('success').toLowerCase()}`);
   }catch(e){addLog(`> ${e.name==='AbortError'?'Aborted':e.message}`)}
   finally{$(`btn-${type}-go`).classList.remove('hide');$(`btn-${type}-stop`).classList.add('hide')}
@@ -522,7 +529,13 @@ function render(){
     tb.appendChild(tr)})
 }
 function cpRow(i){const r=R[i];const c=r.platform==='fireworks'?(r.data.apikey||''):r.platform==='openrouter'?(r.data.api_key||''):(r.data.auth_token||'');navigator.clipboard.writeText(`${r.email}----${r.data.password||''}----${c}`);toast(t('copied'))}
-function clearAll(){if(!confirm(t('clearConfirm')))return;R=[];localStorage.setItem('R','[]');stats();render()}
+async function clearAll(){
+  if(!confirm(t('clearConfirm')))return;
+  try{
+    const r=await api('DELETE','/api/results');
+    if(r.ok){R=[];stats();render();toast('已清空')}
+  }catch(e){toast('清空失败')}
+}
 function expAccount(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>`${r.email}----${r.data.password||''}`).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','accounts.txt')}
 function expCred(){const f=getFiltered().filter(r=>r.status==='success');const d=f.map(r=>{const c=r.platform==='fireworks'?(r.data.apikey||''):r.platform==='openrouter'?(r.data.api_key||''):(r.data.auth_token||'');return c}).join('\n');if(!d)return toast(i18n[lang].noData);dl(d,'text/plain','credentials.txt')}
 function expJSON(){dl(JSON.stringify(getFiltered(),null,2),'application/json','results.json')}

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"github.com/grok-fireworks-reg/internal/common"
 	"github.com/grok-fireworks-reg/internal/config"
@@ -24,12 +26,13 @@ type OpenRouterRegisterRequest struct {
 
 // OpenRouterHandler OpenRouter 注册处理器
 type OpenRouterHandler struct {
-	cfg *config.Config
+	cfg     *config.Config
+	storage *common.ResultStorage
 }
 
 // NewOpenRouterHandler 创建 OpenRouterHandler
-func NewOpenRouterHandler(cfg *config.Config) *OpenRouterHandler {
-	return &OpenRouterHandler{cfg: cfg}
+func NewOpenRouterHandler(cfg *config.Config, storage *common.ResultStorage) *OpenRouterHandler {
+	return &OpenRouterHandler{cfg: cfg, storage: storage}
 }
 
 // Register POST /api/openrouter/register
@@ -143,6 +146,16 @@ func (h *OpenRouterHandler) Register(c *gin.Context) {
 					writeSSE("log", msg)
 				}
 				return
+			}
+			result.Platform = "openrouter"
+			if result.OK {
+				result.Status = "success"
+			} else {
+				result.Status = "failed"
+			}
+			result.Time = time.Now().Format("2006-01-02 15:04:05")
+			if err := h.storage.Append(*result); err != nil {
+				log.Error().Err(err).Msg("保存结果失败")
 			}
 			data, _ := json.Marshal(result)
 			writeSSE("result", string(data))

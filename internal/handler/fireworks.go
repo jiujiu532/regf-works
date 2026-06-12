@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"github.com/grok-fireworks-reg/internal/common"
 	"github.com/grok-fireworks-reg/internal/config"
@@ -24,12 +26,13 @@ type FireworksRegisterRequest struct {
 
 // FireworksHandler Fireworks 注册处理器
 type FireworksHandler struct {
-	cfg *config.Config
+	cfg     *config.Config
+	storage *common.ResultStorage
 }
 
 // NewFireworksHandler 创建 FireworksHandler
-func NewFireworksHandler(cfg *config.Config) *FireworksHandler {
-	return &FireworksHandler{cfg: cfg}
+func NewFireworksHandler(cfg *config.Config, storage *common.ResultStorage) *FireworksHandler {
+	return &FireworksHandler{cfg: cfg, storage: storage}
 }
 
 // Register POST /api/fireworks/register
@@ -159,6 +162,16 @@ func (h *FireworksHandler) Register(c *gin.Context) {
 					writeSSE("log", msg)
 				}
 				return
+			}
+			result.Platform = "fireworks"
+			if result.OK {
+				result.Status = "success"
+			} else {
+				result.Status = "failed"
+			}
+			result.Time = time.Now().Format("2006-01-02 15:04:05")
+			if err := h.storage.Append(*result); err != nil {
+				log.Error().Err(err).Msg("保存结果失败")
 			}
 			data, _ := json.Marshal(result)
 			writeSSE("result", string(data))

@@ -15,5 +15,7 @@ type RegisterResult struct {
 	Email    string                 `json:"email,omitempty"`
 	Error    string                 `json:"error,omitempty"`
 	Platform string                 `json:"platform,omitempty"`
+	Status   string                 `json:"status,omitempty"` // "success" | "failed"
+	Time     string                 `json:"time,omitempty"`   // 时间戳
 	Data     map[string]interface{} `json:"data,omitempty"`
 }

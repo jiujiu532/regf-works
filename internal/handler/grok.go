@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -25,12 +26,13 @@ type GrokRegisterRequest struct {
 
 // GrokHandler Grok 注册处理器
 type GrokHandler struct {
-	cfg *config.Config
+	cfg     *config.Config
+	storage *common.ResultStorage
 }
 
 // NewGrokHandler 创建 GrokHandler
-func NewGrokHandler(cfg *config.Config) *GrokHandler {
-	return &GrokHandler{cfg: cfg}
+func NewGrokHandler(cfg *config.Config, storage *common.ResultStorage) *GrokHandler {
+	return &GrokHandler{cfg: cfg, storage: storage}
 }
 
 // Register POST /api/grok/register
@@ -171,6 +173,17 @@ func (h *GrokHandler) Register(c *gin.Context) {
 					writeSSE("log", msg)
 				}
 				return
+			}
+			// 持久化到文件
+			result.Platform = "grok"
+			if result.OK {
+				result.Status = "success"
+			} else {
+				result.Status = "failed"
+			}
+			result.Time = time.Now().Format("2006-01-02 15:04:05")
+			if err := h.storage.Append(*result); err != nil {
+				log.Error().Err(err).Msg("保存结果失败")
 			}
 			data, _ := json.Marshal(result)
 			writeSSE("result", string(data))
