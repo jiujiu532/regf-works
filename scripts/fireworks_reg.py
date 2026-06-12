@@ -91,7 +91,7 @@ FIREWORKS_COGNITO_BASE = "https://cognito-idp.us-west-2.amazonaws.com/"
 FIREWORKS_ACTION_SIGNUP      = "408aa536b5191228ace5bd1baade455dd72b26da9e"  # submitSignupForm
 FIREWORKS_ACTION_LOGIN       = "40b4d5b71a361f6278169582309e9ddfa97cc039cd"  # submitLoginForm
 FIREWORKS_ACTION_ONBOARDING  = "60a001e530b99884536040f375194661abde8dfd92"  # submitOnboardingForm
-FIREWORKS_ACTION_CREATE_KEY  = "6039cbbda29c64091d30d69ccf22e2cd7818df3a7f"  # createUserAction (原 createApiKey)
+FIREWORKS_ACTION_CREATE_KEY  = "783c458fd58f7e0316b2ffb972b89d44a08adc792e"  # createUserAction (2026-06-12 更新)
 
 FIREWORKS_ROUTER_SIGNUP     = '%5B%22%22%2C%7B%22children%22%3A%5B%22(v2-auth)%22%2C%7B%22children%22%3A%5B%22signup%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D'
 FIREWORKS_ROUTER_LOGIN      = '[""%2C{"children":["(v2-auth)"%2C{"children":["login"%2C{"children":["email"%2C{"children":["__PAGE__"%2C{}]}]}]}]}%2Cnull%2Cnull%2Ctrue]'
@@ -786,19 +786,96 @@ async def _do_fireworks_register(
         else:
             return {"ok": False, "error": "onboarding 重试次数耗尽", "retriable": True}
         lq(f"onboarding 完成, redirectPath={ob_resp.get('redirectPath')}")
-        
-        # 6. API key 创建（Fireworks 已废弃自动创建，需手动到网页创建）
-        lq("注册完成！账号可用，请手动登录 app.fireworks.ai 创建 API key")
-        
-        # 直接返回注册成功，不创建 API key
+
+        # 6. 创建 API key
+        lq("创建 API key...")
+        # payload 格式: ["<数字>", "$undefined", false, "$undefined"]
+        # 第一个参数是 key 编号，新账号首个 key 用 "1"
+        create_key_payload = json.dumps(["1", "$undefined", False, "$undefined"])
+        api_key = None
+        for key_attempt in range(3):
+            try:
+                key_resp = await _fw_post_action(
+                    sess,
+                    path="/settings/users/api-keys",
+                    action_id=FIREWORKS_ACTION_CREATE_KEY,
+                    router_state=FIREWORKS_ROUTER_APIKEYS,
+                    payload_json=create_key_payload,
+                    timeout=30,
+                )
+            except Exception as exc:
+                lq(f"创建 API key 失败 (第{key_attempt+1}次): {exc}")
+                if key_attempt < 2:
+                    await asyncio.sleep(2)
+                    continue
+                # 3 次都失败，返回注册成功但无 key
+                return {
+                    "ok": True,
+                    "email": email,
+                    "password": password,
+                    "account_id": account_id,
+                    "requested_account_id": requested_account_id,
+                    "apikey": None,
+                    "warning": f"注册成功但创建 API key 失败: {exc}",
+                }
+
+            # 解析 key_resp: {"keyId": "key_xxx", "key": "fw_xxx"}
+            fw_key = key_resp.get("key", "")
+            key_id = key_resp.get("keyId", "")
+            if fw_key and fw_key.startswith("fw_"):
+                api_key = fw_key
+                lq(f"API key 创建成功: {api_key[:12]}... (keyId={key_id})")
+                break
+            elif key_resp.get("serializedError"):
+                lq(f"创建 key 返回错误: {key_resp['serializedError']}")
+                if key_attempt < 2:
+                    await asyncio.sleep(2)
+                    continue
+            else:
+                lq(f"创建 key 返回意外格式: {key_resp}")
+                if key_attempt < 2:
+                    await asyncio.sleep(2)
+                    continue
+                break
+
+        if not api_key:
+            return {
+                "ok": True,
+                "email": email,
+                "password": password,
+                "account_id": account_id,
+                "requested_account_id": requested_account_id,
+                "apikey": None,
+                "warning": "注册成功但未能获取 API key，请手动登录创建",
+            }
+
+        # 7. 验活 API key
+        lq("验活 API key...")
+        try:
+            live_ok, live_msg = _fw_verify_apikey_live(api_key, proxy)
+        except Exception as exc:
+            live_ok, live_msg = False, str(exc)[:150]
+        lq(f"验活结果: ok={live_ok}, msg={live_msg}")
+
+        # 8. 收集账号状态
+        account_state = {}
+        try:
+            account_state = _fw_collect_account_state(api_key, email, proxy)
+            lq(f"账号状态: suspend={account_state.get('suspend_state', 'N/A')}")
+        except Exception as exc:
+            lq(f"账号状态查询失败(非致命): {exc}")
+
         return {
             "ok": True,
             "email": email,
             "password": password,
             "account_id": account_id,
             "requested_account_id": requested_account_id,
-            "message": "注册成功，请登录 https://app.fireworks.ai/settings/users/api-keys 创建 API key",
-            "warning": "Fireworks 已移除自动创建 API key 的 Server Action，需手动创建"
+            "apikey": api_key,
+            "key_id": key_id,
+            "live_ok": live_ok,
+            "live_msg": live_msg,
+            **account_state,
         }
 
 
