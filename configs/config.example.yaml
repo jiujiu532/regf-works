@@ -40,7 +40,8 @@ mail:
     expiry_time: 3600000
 
 turnstile:
-  solver_urls: []
+  solver_urls:
+    - "http://127.0.0.1:5072"
   solver_proxy: ""
   capsolver_key: ""
   yescaptcha_key: ""

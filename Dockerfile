@@ -49,7 +49,6 @@ COPY --from=builder /bin/reg-server /app/reg-server
 
 # 复制配置文件
 COPY configs/config.example.yaml /app/configs/config.example.yaml
-COPY configs/config.full.yaml /app/configs/config.full.yaml
 
 # 复制 Python 脚本
 COPY scripts/fireworks_reg.py /app/scripts/fireworks_reg.py
@@ -60,7 +59,7 @@ COPY solver/ /app/solver/
 COPY web/ /app/web/
 
 # 安装 Python 依赖
-COPY scripts/requirements-full.txt /tmp/requirements.txt
+COPY scripts/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # 安装 Camoufox 浏览器（重试 3 次避免 GitHub API 限流）
@@ -73,7 +72,7 @@ RUN python -m patchright install chromium || true
 EXPOSE 8080
 
 # 复制启动脚本
-COPY scripts/entrypoint-full.sh /app/entrypoint.sh
+COPY scripts/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # 设置环境变量

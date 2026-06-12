@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-# 如果没有用户配置文件，使用 full 默认配置
+# 如果没有用户配置文件，使用默认配置
 if [ ! -f /app/configs/config.yaml ]; then
-  cp /app/configs/config.full.yaml /app/configs/config.yaml
+  cp /app/configs/config.example.yaml /app/configs/config.yaml
 fi
 
 # 启动 Turnstile Solver（后台，端口 5072，2 线程）

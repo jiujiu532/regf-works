@@ -206,8 +206,7 @@ DELETE /api/blacklist/openrouter
 │   └── index.html
 ├── Dockerfile          # 一体化镜像
 └── configs/
-    ├── config.example.yaml
-    └── config.full.yaml
+    └── config.example.yaml
 ```
 
 ### 构建
