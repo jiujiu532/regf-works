@@ -8,7 +8,7 @@ fi
 
 # 启动 Turnstile Solver（后台，端口 5072，2 线程）
 echo "[*] Starting Turnstile Solver on port 5072..."
-python3 /app/solver/api_solver.py --browser_type camoufox --thread 2 --port 5072 --headless &
+python3 /app/solver/api_solver.py --browser_type camoufox --thread 2 --port 5072 &
 SOLVER_PID=$!
 
 # 启动 Fireworks Python 服务（后台，端口 5000）
