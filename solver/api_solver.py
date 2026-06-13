@@ -576,7 +576,7 @@ class TurnstileAPIServer:
                 logger.warning(f"Browser {index}: Cannot check browser state: {str(e)}")
             return False
 
-    async def _solve_turnstile(self, task_id: str, url: str, sitekey: str, action: Optional[str] = None, cdata: Optional[str] = None):
+    async def _solve_turnstile(self, task_id: str, url: str, sitekey: str, action: Optional[str] = None, cdata: Optional[str] = None, req_proxy: Optional[str] = None):
         """Solve the Turnstile challenge."""
         proxy = None
         start_time = time.time()
@@ -600,7 +600,12 @@ class TurnstileAPIServer:
                     'sec-ch-ua': browser_config['sec_ch_ua']
                 }
 
-            if self.proxy_support:
+            # per-request proxy 优先于全局 proxy_support
+            if req_proxy and req_proxy.strip():
+                proxy = req_proxy.strip()
+                if self.debug:
+                    logger.debug(f"Browser {index}: Using per-request proxy: {proxy}")
+            elif self.proxy_support:
                 proxy_file_path = os.path.join(os.getcwd(), "proxies.txt")
 
                 try:
@@ -610,7 +615,7 @@ class TurnstileAPIServer:
                     proxy = random.choice(proxies) if proxies else None
 
                     if self.debug and proxy:
-                        logger.debug(f"Browser {index}: Selected proxy: {proxy}")
+                        logger.debug(f"Browser {index}: Selected proxy from file: {proxy}")
                     elif self.debug and not proxy:
                         logger.debug(f"Browser {index}: No proxies available")
 
@@ -621,44 +626,45 @@ class TurnstileAPIServer:
                     logger.error(f"Error reading proxy file: {str(e)}")
                     proxy = None
 
-                if proxy:
-                    if '@' in proxy:
-                        if '://' not in proxy:
-                            raise ValueError(f"Invalid proxy format: {proxy}")
-                        scheme_part, auth_part = proxy.split('://', 1)
-                        auth, address = auth_part.split('@', 1)
-                        username, password = auth.split(':', 1)
-                        ip, port = address.rsplit(':', 1)
+            # 解析 proxy 格式并设置到 browser context
+            if proxy:
+                if '@' in proxy:
+                    if '://' not in proxy:
+                        raise ValueError(f"Invalid proxy format: {proxy}")
+                    scheme_part, auth_part = proxy.split('://', 1)
+                    auth, address = auth_part.split('@', 1)
+                    username, password = auth.split(':', 1)
+                    ip, port = address.rsplit(':', 1)
+                    context_options["proxy"] = {
+                        "server": f"{scheme_part}://{ip}:{port}",
+                        "username": username,
+                        "password": password,
+                    }
+                    if self.debug:
+                        logger.debug(
+                            f"Browser {index}: Creating context with proxy {scheme_part}://{ip}:{port} (auth: {username}:***)"
+                        )
+                else:
+                    parts = proxy.split(':')
+                    if len(parts) == 5:
+                        proxy_scheme, proxy_ip, proxy_port, proxy_user, proxy_pass = parts
                         context_options["proxy"] = {
-                            "server": f"{scheme_part}://{ip}:{port}",
-                            "username": username,
-                            "password": password,
+                            "server": f"{proxy_scheme}://{proxy_ip}:{proxy_port}",
+                            "username": proxy_user,
+                            "password": proxy_pass,
                         }
                         if self.debug:
                             logger.debug(
-                                f"Browser {index}: Creating context with proxy {scheme_part}://{ip}:{port} (auth: {username}:***)"
+                                f"Browser {index}: Creating context with proxy {proxy_scheme}://{proxy_ip}:{proxy_port} (auth: {proxy_user}:***)"
                             )
+                    elif len(parts) == 3 and '://' in proxy:
+                        context_options["proxy"] = {"server": proxy}
+                        if self.debug:
+                            logger.debug(f"Browser {index}: Creating context with proxy {proxy}")
                     else:
-                        parts = proxy.split(':')
-                        if len(parts) == 5:
-                            proxy_scheme, proxy_ip, proxy_port, proxy_user, proxy_pass = parts
-                            context_options["proxy"] = {
-                                "server": f"{proxy_scheme}://{proxy_ip}:{proxy_port}",
-                                "username": proxy_user,
-                                "password": proxy_pass,
-                            }
-                            if self.debug:
-                                logger.debug(
-                                    f"Browser {index}: Creating context with proxy {proxy_scheme}://{proxy_ip}:{proxy_port} (auth: {proxy_user}:***)"
-                                )
-                        elif len(parts) == 3 and '://' in proxy:
-                            context_options["proxy"] = {"server": proxy}
-                            if self.debug:
-                                logger.debug(f"Browser {index}: Creating context with proxy {proxy}")
-                        else:
-                            raise ValueError(f"Invalid proxy format: {proxy}")
-                elif self.debug:
-                    logger.debug(f"Browser {index}: Creating context without proxy")
+                        raise ValueError(f"Invalid proxy format: {proxy}")
+            elif self.debug:
+                logger.debug(f"Browser {index}: Creating context without proxy")
 
             context = await browser.new_context(**context_options)
             page = await context.new_page()
@@ -825,6 +831,7 @@ class TurnstileAPIServer:
         sitekey = request.args.get('sitekey')
         action = request.args.get('action')
         cdata = request.args.get('cdata')
+        req_proxy = request.args.get('proxy')  # per-request proxy
 
         if not url or not sitekey:
             return jsonify({
@@ -844,7 +851,7 @@ class TurnstileAPIServer:
         })
 
         try:
-            asyncio.create_task(self._solve_turnstile(task_id=task_id, url=url, sitekey=sitekey, action=action, cdata=cdata))
+            asyncio.create_task(self._solve_turnstile(task_id=task_id, url=url, sitekey=sitekey, action=action, cdata=cdata, req_proxy=req_proxy))
 
             if self.debug:
                 logger.debug(f"Request completed with taskid {task_id}.")
