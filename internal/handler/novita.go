@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -95,17 +96,18 @@ func (h *NovitaHandler) Register(c *gin.Context) {
 	semaphore := make(chan struct{}, concurrency)
 
 	go func() {
-		defer close(logCh)
-		defer close(resultCh)
+		var wg sync.WaitGroup
 		for i := 0; i < count; i++ {
 			select {
 			case <-ctx.Done():
-				return
+				break
 			default:
 			}
 
 			semaphore <- struct{}{}
+			wg.Add(1)
 			go func(idx int) {
+				defer wg.Done()
 				defer func() { <-semaphore }()
 
 				taskProxy := proxy
@@ -122,10 +124,9 @@ func (h *NovitaHandler) Register(c *gin.Context) {
 				resultCh <- result
 			}(i)
 		}
-
-		for i := 0; i < concurrency && i < count; i++ {
-			semaphore <- struct{}{}
-		}
+		wg.Wait()
+		close(resultCh)
+		close(logCh)
 	}()
 
 	for {

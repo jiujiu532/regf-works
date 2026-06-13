@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -117,17 +118,18 @@ func (h *GrokHandler) Register(c *gin.Context) {
 	semaphore := make(chan struct{}, concurrency) // 并发控制信号量
 
 	go func() {
-		defer close(logCh)
-		defer close(resultCh)
+		var wg sync.WaitGroup
 		for i := 0; i < count; i++ {
 			select {
 			case <-ctx.Done():
-				return
+				break
 			default:
 			}
 
 			semaphore <- struct{}{} // 获取信号量
+			wg.Add(1)
 			go func(idx int) {
+				defer wg.Done()
 				defer func() { <-semaphore }() // 释放信号量
 
 				// 从代理池轮询
@@ -145,11 +147,9 @@ func (h *GrokHandler) Register(c *gin.Context) {
 				resultCh <- result
 			}(i)
 		}
-
-		// 等待所有任务完成
-		for i := 0; i < concurrency && i < count; i++ {
-			semaphore <- struct{}{}
-		}
+		wg.Wait()
+		close(resultCh)
+		close(logCh)
 	}()
 
 	// 消费日志和结果，流式输出
