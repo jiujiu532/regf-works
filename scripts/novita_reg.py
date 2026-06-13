@@ -18,8 +18,12 @@ import os
 import queue
 import random
 import re
+import secrets
 import string
 import time
+import ssl
+import urllib.request
+import urllib.error
 from threading import Event
 from typing import Optional
 
@@ -126,6 +130,8 @@ async def _do_novita_register(
     mail_provider: str,
     mail_meta: dict,
     ahem_base_url: str,
+    yydsmail_url: str,
+    yydsmail_key: str,
     log_q: queue.Queue,
     cancel: Event,
 ) -> dict:
@@ -183,7 +189,8 @@ async def _do_novita_register(
         # ──── Step 2: 等待激活邮件 ────
         logf("[*] 等待激活邮件...")
         activate_token = await _wait_for_activation_email(
-            email, mail_provider, mail_meta, ahem_base_url, logf
+            email, mail_provider, mail_meta, ahem_base_url,
+            yydsmail_url, yydsmail_key, logf
         )
         if not activate_token:
             result["error"] = "获取激活邮件失败"
@@ -317,16 +324,33 @@ async def _do_novita_register(
 
 async def _wait_for_activation_email(
     email: str, mail_provider: str, mail_meta: dict,
-    ahem_base_url: str, logf
+    ahem_base_url: str, yydsmail_url: str, yydsmail_key: str, logf
 ) -> Optional[str]:
-    """从邮箱中获取激活 token"""
-    prefix = email.split("@")[0]
+    """从邮箱中获取激活 token（支持 AHEM / YYDS / GPTMail）"""
 
-    if not ahem_base_url:
-        logf("[-] 无 AHEM 服务地址，无法获取激活邮件")
+    if mail_provider == "ahem":
+        return await _poll_ahem_activation(email, ahem_base_url, logf)
+    elif mail_provider in ("yydsmail", "yyds"):
+        return await _poll_yydsmail_activation(email, yydsmail_url, yydsmail_key, mail_meta, logf)
+    elif mail_provider in ("gptmail", "moemail"):
+        # GPTMail/MoeMail 都走通用 AHEM 兼容接口
+        return await _poll_ahem_activation(email, ahem_base_url, logf)
+    else:
+        # 默认尝试 AHEM
+        if ahem_base_url:
+            return await _poll_ahem_activation(email, ahem_base_url, logf)
+        logf("[-] 无可用邮箱服务地址")
         return None
 
-    for attempt in range(15):  # 最多等 30 秒
+
+async def _poll_ahem_activation(email: str, ahem_base_url: str, logf) -> Optional[str]:
+    """从 AHEM 邮箱提取 Novita 激活 token"""
+    if not ahem_base_url:
+        logf("[-] 无 AHEM 服务地址")
+        return None
+
+    prefix = email.split("@")[0]
+    for attempt in range(15):
         await asyncio.sleep(2)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
@@ -339,28 +363,80 @@ async def _wait_for_activation_email(
                         logf(f"[*] 等待激活邮件... ({attempt * 2}s)")
                     continue
 
-                # 找到 Novita 的邮件
                 for mail in mails:
                     if "novita" in mail.get("sender", {}).get("address", "").lower() or \
                        "confirm" in mail.get("subject", "").lower():
                         email_id = mail.get("emailId", "")
-                        r2 = await client.get(
-                            f"{ahem_base_url}/api/mailbox/{prefix}/email/{email_id}"
-                        )
+                        r2 = await client.get(f"{ahem_base_url}/api/mailbox/{prefix}/email/{email_id}")
                         html = r2.json().get("html", "")
-                        # 提取 token
-                        match = re.search(r'token=([A-Za-z0-9_-]+)', html)
-                        if match:
-                            token = match.group(1)
-                            logf(f"[+] 激活 token 已获取")
+                        token = _extract_novita_token(html)
+                        if token:
+                            logf("[+] 激活 token 已获取")
                             return token
         except Exception as e:
             if attempt % 3 == 0:
                 logf(f"[*] 获取邮件出错: {e}, 重试中...")
-            continue
-
     logf("[-] 激活邮件超时 (30s)")
     return None
+
+
+async def _poll_yydsmail_activation(
+    email: str, yydsmail_url: str, yydsmail_key: str, mail_meta: dict, logf
+) -> Optional[str]:
+    """从 YYDS Mail 提取 Novita 激活 token"""
+    if not yydsmail_url or not yydsmail_key:
+        logf("[-] 无 YYDS Mail 配置")
+        return None
+
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE
+
+    base_url = yydsmail_url.rstrip("/")
+    if not base_url.startswith("http"):
+        base_url = "https://" + base_url
+    token_header = mail_meta.get("yydsmail_token", yydsmail_key)
+
+    for attempt in range(15):
+        await asyncio.sleep(2)
+        try:
+            req = urllib.request.Request(
+                f"{base_url}/api/emails?mailbox={urllib.parse.quote(email)}",
+                headers={"Authorization": f"Bearer {token_header}", "Accept": "application/json"}
+            )
+            with urllib.request.urlopen(req, context=_ssl_ctx, timeout=10) as resp:
+                data = json.loads(resp.read())
+                messages = data if isinstance(data, list) else data.get("messages", [])
+                if not messages:
+                    if attempt % 3 == 0:
+                        logf(f"[*] 等待激活邮件 (yydsmail)... ({attempt * 2}s)")
+                    continue
+                for msg in messages:
+                    subject = msg.get("subject", "")
+                    if "confirm" in subject.lower() or "novita" in subject.lower():
+                        msg_id = msg.get("id", "")
+                        detail_req = urllib.request.Request(
+                            f"{base_url}/api/email/{urllib.parse.quote(msg_id)}",
+                            headers={"Authorization": f"Bearer {token_header}", "Accept": "application/json"}
+                        )
+                        with urllib.request.urlopen(detail_req, context=_ssl_ctx, timeout=10) as dresp:
+                            detail = json.loads(dresp.read())
+                            html = detail.get("html", detail.get("text", ""))
+                            token = _extract_novita_token(html)
+                            if token:
+                                logf("[+] 激活 token 已获取 (yydsmail)")
+                                return token
+        except Exception as e:
+            if attempt % 3 == 0:
+                logf(f"[*] yydsmail 出错: {e}, 重试中...")
+    logf("[-] 激活邮件超时 (30s)")
+    return None
+
+
+def _extract_novita_token(html: str) -> Optional[str]:
+    """从邮件 HTML 中提取 Novita 激活 token"""
+    match = re.search(r'token=([A-Za-z0-9_-]+)', html)
+    return match.group(1) if match else None
 
 
 # ─── HTTP 端点 ────────────────────────────────────────────────────────────
@@ -380,14 +456,20 @@ async def novita_register():
     email = data["email"]
     password = data.get("password", "")
     if not password:
-        # 生成随机密码: 字母+数字+特殊字符
-        pwd_chars = string.ascii_letters + string.digits
-        password = "".join(random.choices(pwd_chars, k=12)) + random.choice("!@#$%")
+        # 生成安全密码: 字母+数字+特殊字符，打乱顺序
+        alpha = [secrets.choice(string.ascii_letters) for _ in range(8)]
+        digit = [secrets.choice(string.digits) for _ in range(3)]
+        special = [secrets.choice("!@#$%&")]
+        pwd_list = alpha + digit + special
+        random.shuffle(pwd_list)
+        password = "".join(pwd_list)
     proxy = data.get("proxy", "")
     solver_api = data.get("solver_api", "http://localhost:5072")
     mail_provider = data.get("mail_provider", "")
     mail_meta = data.get("mail_meta", {})
     ahem_base_url = data.get("ahem_base_url", "")
+    yydsmail_url = data.get("yydsmail_url", "")
+    yydsmail_key = data.get("yydsmail_key", "")
 
     logger.info("收到 novita 注册请求: %s solver=%s", email, solver_api)
 
@@ -405,6 +487,8 @@ async def novita_register():
                     mail_provider=mail_provider,
                     mail_meta=mail_meta,
                     ahem_base_url=ahem_base_url,
+                    yydsmail_url=yydsmail_url,
+                    yydsmail_key=yydsmail_key,
                     log_q=log_q,
                     cancel=cancel_event,
                 )

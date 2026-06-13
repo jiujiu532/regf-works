@@ -89,6 +89,8 @@ func Register(ctx context.Context, opts RegisterOpts) *common.RegisterResult {
 		MailProvider: meta["provider"],
 		MailMeta:     meta,
 		AhemBaseURL:  common.SettingOrDefault(opts.Config, "ahem_base_url", ""),
+		YYDSMailURL:  common.SettingOrDefault(opts.Config, "yydsmail_base_url", ""),
+		YYDSMailKey:  common.SettingOrDefault(opts.Config, "yydsmail_api_key", ""),
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)

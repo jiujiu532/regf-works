@@ -18,6 +18,8 @@ type ServiceRequest struct {
 	MailProvider string            `json:"mail_provider,omitempty"`
 	MailMeta     map[string]string `json:"mail_meta,omitempty"`
 	AhemBaseURL  string            `json:"ahem_base_url,omitempty"`
+	YYDSMailURL  string            `json:"yydsmail_url,omitempty"`
+	YYDSMailKey  string            `json:"yydsmail_key,omitempty"`
 }
 
 // ServiceResult Python 服务返回结果

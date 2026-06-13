@@ -380,6 +380,12 @@
           <div id="openrouterBlacklistContent" style="max-height:200px;overflow-y:auto;color:var(--text-2);font-size:14px"></div>
           <button class="btn btn-outline btn-sm" onclick="clearBlacklist('openrouter')" data-i="clearBlacklist" style="margin-top:12px">清空黑名单</button>
         </div>
+
+        <div class="card">
+          <div class="card-title" data-i="novitaBlacklist">Novita 域名黑名单</div>
+          <div id="novitaBlacklistContent" style="max-height:200px;overflow-y:auto;color:var(--text-2);font-size:14px"></div>
+          <button class="btn btn-outline btn-sm" onclick="clearBlacklist('novita')" data-i="clearBlacklist" style="margin-top:12px">清空黑名单</button>
+        </div>
       </div>
 
       <!-- ═ Settings ═ -->
@@ -432,7 +438,7 @@ const i18n={
     yydsUrl:'YYDS URL',yydsKey:'YYDS API Key',gptmailUrl:'GPTMail URL',gptmailKey:'GPTMail API Key',
     moemailUrl:'MoeMail URL',moemailKey:'MoeMail API Key',moemailDomains:'MoeMail Domains',moemailExpiry:'MoeMail Expiry (ms)',
     saveMailCfg:'Save mail config',mailSaved:'Mail config saved',
-    grokBlacklist:'Grok Domain Blacklist',fireworksBlacklist:'Fireworks Domain Blacklist',openrouterBlacklist:'OpenRouter Domain Blacklist',
+    grokBlacklist:'Grok Domain Blacklist',fireworksBlacklist:'Fireworks Domain Blacklist',openrouterBlacklist:'OpenRouter Domain Blacklist',novitaBlacklist:'Novita Domain Blacklist',
     clearBlacklist:'Clear Blacklist',noBanned:'No banned domains',bannedAgo:'banned',
     proxy2:'Proxy',defaultProxy:'Default proxy',poolLine:'Pool (one per line)',saveProxyCfg:'Save proxy config',proxySaved:'Proxy config saved',
     security:'Security',newUsername:'New username',newPassword:'New password',confirm:'Confirm',
@@ -458,7 +464,7 @@ const i18n={
     yydsUrl:'YYDS URL',yydsKey:'YYDS API Key',gptmailUrl:'GPTMail URL',gptmailKey:'GPTMail API Key',
     moemailUrl:'MoeMail URL',moemailKey:'MoeMail API Key',moemailDomains:'MoeMail 域名',moemailExpiry:'MoeMail 过期时间 (毫秒)',
     saveMailCfg:'保存邮箱配置',mailSaved:'邮箱配置已保存',
-    grokBlacklist:'Grok 域名黑名单',fireworksBlacklist:'Fireworks 域名黑名单',openrouterBlacklist:'OpenRouter 域名黑名单',
+    grokBlacklist:'Grok 域名黑名单',fireworksBlacklist:'Fireworks 域名黑名单',openrouterBlacklist:'OpenRouter 域名黑名单',novitaBlacklist:'Novita 域名黑名单',
     clearBlacklist:'清空黑名单',noBanned:'暂无黑名单域名',bannedAgo:'前拉黑',
     proxy2:'代理',defaultProxy:'默认代理',poolLine:'代理池 (每行一个)',saveProxyCfg:'保存代理配置',proxySaved:'代理配置已保存',
     security:'安全',newUsername:'新用户名',newPassword:'新密码',confirm:'确认',
@@ -472,7 +478,7 @@ const i18n={
     confirmClearAll:'确定删除全部 {n} 条记录？此操作不可恢复！'
   }
 };
-let lang=localStorage.getItem('lang')||'en',tk=localStorage.getItem('tk')||'',R=[],AB={grok:null,fireworks:null};
+let lang=localStorage.getItem('lang')||'en',tk=localStorage.getItem('tk')||'',R=[],AB={grok:null,fireworks:null,openrouter:null,novita:null};
 function t(k){return i18n[lang][k]||k}
 function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('lang',lang);$('langBtn').textContent=lang==='en'?'中文':'EN';applyI18n()}
 function applyI18n(){
@@ -646,10 +652,11 @@ async function saveAuth(){const np=$('sNP').value;if(np&&np!==$('sNP2').value)re
 /* Blacklist */
 async function loadBlacklists(){
   try{
-    const[rg,rf,ro]=await Promise.all([api('GET','/api/blacklist/grok'),api('GET','/api/blacklist/fireworks'),api('GET','/api/blacklist/openrouter')]);
+    const[rg,rf,ro,rn]=await Promise.all([api('GET','/api/blacklist/grok'),api('GET','/api/blacklist/fireworks'),api('GET','/api/blacklist/openrouter'),api('GET','/api/blacklist/novita')]);
     if(rg.ok){const d=await rg.json();renderBlacklist('grokBlacklistContent',d.domains||[])}
     if(rf.ok){const d=await rf.json();renderBlacklist('fireworksBlacklistContent',d.domains||[])}
     if(ro.ok){const d=await ro.json();renderBlacklist('openrouterBlacklistContent',d.domains||[])}
+    if(rn.ok){const d=await rn.json();renderBlacklist('novitaBlacklistContent',d.domains||[])}
   }catch(e){console.error('loadBlacklists error',e)}
 }
 function renderBlacklist(elId,domains){

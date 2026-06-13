@@ -76,6 +76,7 @@ func main() {
 				"grok":       "ready",
 				"fireworks":  "ready",
 				"openrouter": "ready",
+				"novita":     "ready",
 			})
 		})
 		api.POST("/auth/login", authHandler.Login)
