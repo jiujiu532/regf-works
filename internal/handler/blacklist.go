@@ -9,6 +9,7 @@ import (
 	grokpkg "github.com/grok-fireworks-reg/internal/grok"
 	fwpkg "github.com/grok-fireworks-reg/internal/fireworks"
 	orpkg "github.com/grok-fireworks-reg/internal/openrouter"
+	nvpkg "github.com/grok-fireworks-reg/internal/novita"
 )
 
 // BlacklistEntry 黑名单条目（API 返回格式）
@@ -52,6 +53,18 @@ func GetOpenRouterBlacklist(c *gin.Context) {
 func ClearOpenRouterBlacklist(c *gin.Context) {
 	orpkg.GetBlacklist().Clear()
 	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "OpenRouter blacklist cleared"})
+}
+
+// GetNovitaBlacklist GET /api/blacklist/novita
+func GetNovitaBlacklist(c *gin.Context) {
+	entries := formatBlacklist(nvpkg.GetBlacklist().GetAll())
+	c.JSON(http.StatusOK, gin.H{"platform": "novita", "domains": entries, "count": len(entries)})
+}
+
+// ClearNovitaBlacklist DELETE /api/blacklist/novita
+func ClearNovitaBlacklist(c *gin.Context) {
+	nvpkg.GetBlacklist().Clear()
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "Novita blacklist cleared"})
 }
 
 func formatBlacklist(all map[string]time.Time) []BlacklistEntry {

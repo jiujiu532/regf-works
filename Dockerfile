@@ -53,6 +53,7 @@ COPY configs/config.example.yaml /app/configs/config.example.yaml
 # 复制 Python 脚本
 COPY scripts/fireworks_reg.py /app/scripts/fireworks_reg.py
 COPY scripts/openrouter_reg.py /app/scripts/openrouter_reg.py
+COPY scripts/novita_reg.py /app/scripts/novita_reg.py
 COPY solver/ /app/solver/
 
 # 复制前端资源

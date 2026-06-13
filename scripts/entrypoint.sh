@@ -21,6 +21,11 @@ echo "[*] Starting OpenRouter service on port 5001..."
 python3 /app/scripts/openrouter_reg.py --host 0.0.0.0 --port 5001 &
 OPENROUTER_PID=$!
 
+# 启动 Novita Python 服务（后台，端口 5002）
+echo "[*] Starting Novita service on port 5002..."
+python3 /app/scripts/novita_reg.py --host 0.0.0.0 --port 5002 &
+NOVITA_PID=$!
+
 # 等待服务就绪
 echo "[*] Waiting for services to be ready..."
 sleep 5

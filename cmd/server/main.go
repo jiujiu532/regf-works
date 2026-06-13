@@ -62,6 +62,7 @@ func main() {
 	grokHandler := handler.NewGrokHandler(cfg, resultStorage)
 	fireworksHandler := handler.NewFireworksHandler(cfg, resultStorage)
 	openrouterHandler := handler.NewOpenRouterHandler(cfg, resultStorage)
+	novitaHandler := handler.NewNovitaHandler(cfg, resultStorage)
 	settingsHandler := handler.NewSettingsHandler(cfg)
 	resultsHandler := handler.NewResultsHandler(resultStorage)
 
@@ -88,6 +89,7 @@ func main() {
 			protected.POST("/grok/register", grokHandler.Register)
 			protected.POST("/fireworks/register", fireworksHandler.Register)
 			protected.POST("/openrouter/register", openrouterHandler.Register)
+			protected.POST("/novita/register", novitaHandler.Register)
 
 			settings := protected.Group("/settings")
 			{
@@ -111,6 +113,8 @@ func main() {
 				blacklist.DELETE("/grok", handler.ClearGrokBlacklist)
 				blacklist.DELETE("/fireworks", handler.ClearFireworksBlacklist)
 				blacklist.DELETE("/openrouter", handler.ClearOpenRouterBlacklist)
+				blacklist.GET("/novita", handler.GetNovitaBlacklist)
+				blacklist.DELETE("/novita", handler.ClearNovitaBlacklist)
 			}
 		}
 	}

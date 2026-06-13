@@ -21,6 +21,7 @@ type Config struct {
 	Grok       GrokConfig       `mapstructure:"grok"`
 	Fireworks  FireworksConfig  `mapstructure:"fireworks"`
 	OpenRouter OpenRouterConfig `mapstructure:"openrouter"`
+	Novita     NovitaConfig     `mapstructure:"novita"`
 	
 	configFile string // 内部使用，记录配置文件路径
 }
@@ -98,6 +99,12 @@ type OpenRouterConfig struct {
 	YesCaptchaKey string `mapstructure:"yescaptcha_key"`
 }
 
+type NovitaConfig struct {
+	ServiceURL    string `mapstructure:"service_url"`
+	MaxConcurrent int    `mapstructure:"max_concurrent"`
+	SolverAPI     string `mapstructure:"solver_api"`
+}
+
 // Load 加载配置文件
 func Load(cfgFile string) *Config {
 	if cfgFile != "" {
@@ -121,6 +128,9 @@ func Load(cfgFile string) *Config {
 	viper.SetDefault("openrouter.solver_type", "selfhost")
 	viper.SetDefault("openrouter.solver_api", "http://127.0.0.1:5072")
 	viper.SetDefault("turnstile.solver_urls", []string{"http://127.0.0.1:5072"})
+	viper.SetDefault("novita.service_url", "http://127.0.0.1:5002")
+	viper.SetDefault("novita.max_concurrent", 5)
+	viper.SetDefault("novita.solver_api", "http://127.0.0.1:5072")
 	viper.SetDefault("grok.site_key", "0x4AAAAAAAhr9JGVDZbrZOo0")
 
 	if err := viper.ReadInConfig(); err != nil {
@@ -250,6 +260,25 @@ func (c *Config) ToOpenRouterConfig() common.Config {
 	}
 }
 
+// ToNovitaConfig 转换为 novita worker 使用的 common.Config
+func (c *Config) ToNovitaConfig() common.Config {
+	return common.Config{
+		"novita_reg_url":          c.Novita.ServiceURL,
+		"novita_solver_api":       c.Novita.SolverAPI,
+		"yydsmail_base_url":       c.Mail.YYDS.BaseURL,
+		"yydsmail_api_key":        c.Mail.YYDS.APIKey,
+		"ahem_base_url":           c.Mail.Ahem.BaseURL,
+		"ahem_domains":            c.Mail.Ahem.Domains,
+		"gptmail_base_url":        c.Mail.GPTMail.BaseURL,
+		"gptmail_api_key":         c.Mail.GPTMail.APIKey,
+		"moemail_base_url":        c.Mail.MoeMail.BaseURL,
+		"moemail_api_key":         c.Mail.MoeMail.APIKey,
+		"moemail_domains":         c.Mail.MoeMail.Domains,
+		"moemail_expiry_time":     fmt.Sprintf("%d", c.Mail.MoeMail.ExpiryTime),
+		"email_provider_priority": c.Mail.ProviderPriority,
+	}
+}
+
 // GetDefaultProxy 从配置中获取默认代理
 func (c *Config) GetDefaultProxy() *common.ProxyEntry {
 	if c.Proxy.Default == "" {
@@ -318,6 +347,9 @@ func (c *Config) Save() error {
 	viper.Set("openrouter.solver_type", c.OpenRouter.SolverType)
 	viper.Set("openrouter.solver_api", c.OpenRouter.SolverAPI)
 	viper.Set("openrouter.yescaptcha_key", c.OpenRouter.YesCaptchaKey)
+	viper.Set("novita.service_url", c.Novita.ServiceURL)
+	viper.Set("novita.max_concurrent", c.Novita.MaxConcurrent)
+	viper.Set("novita.solver_api", c.Novita.SolverAPI)
 
 	return viper.WriteConfigAs(path)
 }

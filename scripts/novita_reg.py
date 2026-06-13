@@ -1,0 +1,458 @@
+"""
+Novita AI 全自动注册服务（Quart HTTP 端点）。
+
+API:
+  POST /novita/process  { email, password?, proxy?, solver_api?,
+                          mail_provider?, mail_meta?, ahem_base_url? }
+
+流式响应：每行 LOG:xxx 为实时日志，最后一行为 JSON 注册结果。
+
+Usage: python novita_reg.py [--host 0.0.0.0] [--port 5002]
+"""
+
+import argparse
+import asyncio
+import json
+import logging
+import os
+import queue
+import random
+import re
+import string
+import time
+from threading import Event
+from typing import Optional
+
+import httpx
+from quart import Quart, request, jsonify
+
+# ─── 日志 ─────────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("novita-reg")
+
+# ─── 常量 ─────────────────────────────────────────────────────────────────
+NOVITA_API = "https://api-server.novita.ai"
+NOVITA_ORIGIN = "https://novita.ai"
+TURNSTILE_SITEKEY = "0x4AAAAAAAaG28VfN_OxkED8"
+TURNSTILE_PAGE_URL = "https://novita.ai/user/register"
+
+NOVITA_HEADERS = {
+    "Content-Type": "application/json",
+    "Origin": NOVITA_ORIGIN,
+    "Referer": f"{NOVITA_ORIGIN}/user/register",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    ),
+}
+
+# 问卷随机数据
+ROLES = ["developer", "data-scientist", "researcher", "student", "product-manager"]
+SPENDS = ["0-100", "100-500", "500-1000"]
+FIRST_NAMES = ["Alex", "Sam", "Jordan", "Morgan", "Casey", "Riley", "Quinn", "Avery"]
+LAST_NAMES = ["Chen", "Wang", "Li", "Zhang", "Liu", "Yang", "Huang", "Wu", "Zhou", "Lin"]
+COMPANIES = ["TechFlow AI", "DataVerse", "CloudMind", "NeuralHub", "AIForge", "DeepCore",
+             "QuantumAI", "SynthLab", "CogniTech", "ByteWave"]
+
+# ─── Quart App ────────────────────────────────────────────────────────────
+app = Quart(__name__)
+_MAX_CONCURRENT = int(os.environ.get("NOVITA_MAX_CONCURRENT", "5"))
+_novita_semaphore: asyncio.Semaphore
+
+
+# ─── Turnstile Solver ─────────────────────────────────────────────────────
+
+async def solve_turnstile(solver_api: str, logf, proxy: str = "") -> Optional[str]:
+    """调用本地 Solver 获取 Turnstile token"""
+    logf("[*] 提交 Turnstile 验证...")
+
+    params = {"url": TURNSTILE_PAGE_URL, "sitekey": TURNSTILE_SITEKEY}
+    if proxy:
+        params["proxy"] = proxy
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            r = await client.get(f"{solver_api}/turnstile", params=params)
+            data = r.json()
+        except Exception as e:
+            logf(f"[-] Solver 连接失败: {e}")
+            return None
+
+        if data.get("errorId") != 0:
+            logf(f"[-] Solver 任务提交失败: {data}")
+            return None
+
+        task_id = data["taskId"]
+        logf(f"[*] 任务已提交: {task_id[:8]}...")
+
+        for i in range(60):
+            await asyncio.sleep(2)
+            try:
+                r = await client.get(f"{solver_api}/result", params={"id": task_id})
+                result = r.json()
+            except Exception as e:
+                logf(f"[-] 轮询失败: {e}")
+                continue
+
+            if result.get("status") == "processing":
+                if i % 5 == 0:
+                    logf(f"[*] 等待打码中... ({i * 2}s)")
+                continue
+
+            if result.get("errorId") == 0 and result.get("status") == "ready":
+                token = result["solution"]["token"]
+                logf(f"[+] Turnstile 验证通过!")
+                return token
+
+            if result.get("errorCode") == "ERROR_CAPTCHA_UNSOLVABLE":
+                logf("[-] Solver 无法解决验证码")
+                return None
+
+            logf(f"[-] Solver 未知响应: {result}")
+            return None
+
+    logf("[-] Turnstile 超时 (120s)")
+    return None
+
+
+# ─── 注册流程 ─────────────────────────────────────────────────────────────
+
+async def _do_novita_register(
+    email: str,
+    password: str,
+    proxy: str,
+    solver_api: str,
+    mail_provider: str,
+    mail_meta: dict,
+    ahem_base_url: str,
+    log_q: queue.Queue,
+    cancel: Event,
+) -> dict:
+    """执行完整的 Novita AI 注册流程"""
+
+    def logf(msg: str):
+        log_q.put(msg)
+        logger.info(msg)
+
+    result = {"ok": False, "email": email, "password": password, "api_key": "", "error": ""}
+
+    try:
+        # ──── Step 1: 注册 ────
+        logf("[*] 开始 Novita 注册流程")
+
+        cf_token = await solve_turnstile(solver_api, logf, proxy)
+        if not cf_token:
+            result["error"] = "Turnstile 打码失败 (注册)"
+            return result
+
+        logf(f"[*] 注册中... {email}")
+        payload = {
+            "email": email,
+            "password": password,
+            "confirmPassword": password,
+            "redirectUrl": "/user/login",
+            "cloudflareToken": cf_token,
+            "allowNotification": True,
+            "fromInviteCode": "",
+        }
+
+        transport = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
+        async with httpx.AsyncClient(timeout=30, transport=transport) as client:
+            r = await client.post(
+                f"{NOVITA_API}/v1/user/register",
+                json=payload,
+                headers=NOVITA_HEADERS,
+            )
+
+        if r.status_code != 200:
+            err_data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+            reason = err_data.get("reason", "")
+            message = err_data.get("message", r.text[:200])
+            logf(f"[-] 注册失败: HTTP {r.status_code} {reason} {message}")
+            result["error"] = f"{reason}: {message}"
+            result["retriable"] = reason not in ("USER_ALREADY_EXISTS", "EMAIL_ILLEGAL_ERROR")
+            return result
+
+        logf("[+] 注册成功!")
+
+        if cancel.is_set():
+            result["error"] = "任务取消"
+            return result
+
+        # ──── Step 2: 等待激活邮件 ────
+        logf("[*] 等待激活邮件...")
+        activate_token = await _wait_for_activation_email(
+            email, mail_provider, mail_meta, ahem_base_url, logf
+        )
+        if not activate_token:
+            result["error"] = "获取激活邮件失败"
+            result["ok"] = False
+            # 注册已成功，但激活失败
+            logf("[!] 注册已成功但激活失败，账号需手动激活")
+            return result
+
+        if cancel.is_set():
+            result["error"] = "任务取消"
+            return result
+
+        # ──── Step 3: 激活 ────
+        logf("[*] 激活账户...")
+        cf_token2 = await solve_turnstile(solver_api, logf, proxy)
+        if not cf_token2:
+            result["error"] = "Turnstile 打码失败 (激活)"
+            logf("[!] 注册已成功但激活打码失败")
+            return result
+
+        transport2 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
+        async with httpx.AsyncClient(timeout=30, transport=transport2) as client:
+            r = await client.post(
+                f"{NOVITA_API}/v1/user/email/verify",
+                json={
+                    "token": activate_token,
+                    "email": email,
+                    "cloudflareToken": cf_token2,
+                },
+                headers=NOVITA_HEADERS,
+            )
+
+        if r.status_code != 200:
+            logf(f"[-] 激活失败: HTTP {r.status_code} {r.text[:200]}")
+            result["error"] = f"激活失败: {r.text[:200]}"
+            return result
+
+        logf("[+] 账户已激活!")
+
+        if cancel.is_set():
+            result["error"] = "任务取消"
+            return result
+
+        # ──── Step 4: 登录 ────
+        logf("[*] 登录获取 JWT...")
+        cf_token3 = await solve_turnstile(solver_api, logf, proxy)
+        if not cf_token3:
+            result["error"] = "Turnstile 打码失败 (登录)"
+            return result
+
+        transport3 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
+        async with httpx.AsyncClient(timeout=30, transport=transport3) as client:
+            r = await client.post(
+                f"{NOVITA_API}/v1/user/login",
+                json={
+                    "email": email,
+                    "password": password,
+                    "cloudflareToken": cf_token3,
+                },
+                headers=NOVITA_HEADERS,
+            )
+
+        if r.status_code != 200:
+            logf(f"[-] 登录失败: HTTP {r.status_code} {r.text[:200]}")
+            result["error"] = f"登录失败: {r.text[:200]}"
+            return result
+
+        jwt = r.json().get("token", "")
+        if not jwt:
+            logf("[-] 登录响应中无 token")
+            result["error"] = "登录响应中无 token"
+            return result
+
+        logf("[+] 登录成功!")
+        auth_headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {jwt}",
+        }
+
+        # ──── Step 5: 问卷 ────
+        logf("[*] 提交问卷获取额度...")
+        questionnaire = {
+            "name": f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}",
+            "company": random.choice(COMPANIES),
+            "role": random.choice(ROLES),
+            "monthlySpend": random.choice(SPENDS),
+        }
+
+        transport4 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
+        async with httpx.AsyncClient(timeout=15, transport=transport4) as client:
+            r = await client.post(
+                f"{NOVITA_API}/v1/user/questionnaire",
+                json=questionnaire,
+                headers=auth_headers,
+            )
+
+        if r.status_code == 200:
+            logf("[+] 问卷提交成功 ($101 额度)")
+        else:
+            logf(f"[!] 问卷提交失败: {r.status_code} (不影响账户)")
+
+        # ──── Step 6: 创建 API Key ────
+        logf("[*] 创建 API Key...")
+        transport5 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
+        async with httpx.AsyncClient(timeout=15, transport=transport5) as client:
+            r = await client.post(
+                f"{NOVITA_API}/v2/user/key",
+                json={"name": "auto-generated"},
+                headers=auth_headers,
+            )
+
+        if r.status_code != 200:
+            logf(f"[-] 创建 API Key 失败: {r.status_code}")
+            result["error"] = f"创建 API Key 失败: {r.text[:200]}"
+            return result
+
+        key_data = r.json()
+        api_key = key_data.get("apiKey", "")
+        logf(f"[+] API Key: {api_key[:15]}...")
+
+        result["ok"] = True
+        result["api_key"] = api_key
+        logf(f"[OK] 注册完成: {email}")
+        return result
+
+    except Exception as e:
+        logf(f"[-] 异常: {e}")
+        result["error"] = str(e)
+        return result
+
+
+async def _wait_for_activation_email(
+    email: str, mail_provider: str, mail_meta: dict,
+    ahem_base_url: str, logf
+) -> Optional[str]:
+    """从邮箱中获取激活 token"""
+    prefix = email.split("@")[0]
+
+    if not ahem_base_url:
+        logf("[-] 无 AHEM 服务地址，无法获取激活邮件")
+        return None
+
+    for attempt in range(15):  # 最多等 30 秒
+        await asyncio.sleep(2)
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{ahem_base_url}/api/mailbox/{prefix}/email")
+                if r.status_code != 200:
+                    continue
+                mails = r.json()
+                if not mails:
+                    if attempt % 3 == 0:
+                        logf(f"[*] 等待激活邮件... ({attempt * 2}s)")
+                    continue
+
+                # 找到 Novita 的邮件
+                for mail in mails:
+                    if "novita" in mail.get("sender", {}).get("address", "").lower() or \
+                       "confirm" in mail.get("subject", "").lower():
+                        email_id = mail.get("emailId", "")
+                        r2 = await client.get(
+                            f"{ahem_base_url}/api/mailbox/{prefix}/email/{email_id}"
+                        )
+                        html = r2.json().get("html", "")
+                        # 提取 token
+                        match = re.search(r'token=([A-Za-z0-9_-]+)', html)
+                        if match:
+                            token = match.group(1)
+                            logf(f"[+] 激活 token 已获取")
+                            return token
+        except Exception as e:
+            if attempt % 3 == 0:
+                logf(f"[*] 获取邮件出错: {e}, 重试中...")
+            continue
+
+    logf("[-] 激活邮件超时 (30s)")
+    return None
+
+
+# ─── HTTP 端点 ────────────────────────────────────────────────────────────
+
+@app.before_serving
+async def _init_semaphore():
+    global _novita_semaphore
+    _novita_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
+
+
+@app.route("/novita/process", methods=["POST"])
+async def novita_register():
+    data = await request.get_json()
+    if not data or not data.get("email"):
+        return jsonify({"ok": False, "error": "invalid request"}), 400
+
+    email = data["email"]
+    password = data.get("password", "")
+    if not password:
+        # 生成随机密码: 字母+数字+特殊字符
+        pwd_chars = string.ascii_letters + string.digits
+        password = "".join(random.choices(pwd_chars, k=12)) + random.choice("!@#$%")
+    proxy = data.get("proxy", "")
+    solver_api = data.get("solver_api", "http://localhost:5072")
+    mail_provider = data.get("mail_provider", "")
+    mail_meta = data.get("mail_meta", {})
+    ahem_base_url = data.get("ahem_base_url", "")
+
+    logger.info("收到 novita 注册请求: %s solver=%s", email, solver_api)
+
+    async def generate():
+        async with _novita_semaphore:
+            log_q: queue.Queue = queue.Queue()
+            cancel_event = Event()
+
+            reg_task = asyncio.create_task(
+                _do_novita_register(
+                    email=email,
+                    password=password,
+                    proxy=proxy,
+                    solver_api=solver_api,
+                    mail_provider=mail_provider,
+                    mail_meta=mail_meta,
+                    ahem_base_url=ahem_base_url,
+                    log_q=log_q,
+                    cancel=cancel_event,
+                )
+            )
+
+            last_keepalive = asyncio.get_event_loop().time()
+            try:
+                while not reg_task.done():
+                    await asyncio.sleep(0.3)
+                    now = asyncio.get_event_loop().time()
+                    while not log_q.empty():
+                        try:
+                            msg = log_q.get_nowait()
+                            yield f"LOG:{msg}\n"
+                            last_keepalive = now
+                        except queue.Empty:
+                            break
+                    if now - last_keepalive > 10:
+                        yield "LOG: .\n"
+                        last_keepalive = now
+
+                # 输出剩余日志
+                while not log_q.empty():
+                    try:
+                        msg = log_q.get_nowait()
+                        yield f"LOG:{msg}\n"
+                    except queue.Empty:
+                        break
+
+                result = reg_task.result()
+                yield json.dumps(result, ensure_ascii=False) + "\n"
+
+            except asyncio.CancelledError:
+                cancel_event.set()
+                reg_task.cancel()
+                yield json.dumps({"ok": False, "error": "cancelled"}) + "\n"
+
+    return generate(), 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/health", methods=["GET"])
+async def health():
+    return jsonify({"status": "ok", "service": "novita"})
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=5002)
+    args = parser.parse_args()
+    app.run(host=args.host, port=args.port)
