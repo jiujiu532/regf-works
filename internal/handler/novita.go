@@ -23,6 +23,7 @@ type NovitaRegisterRequest struct {
 	Count         int    `json:"count,omitempty"`
 	Concurrency   int    `json:"concurrency,omitempty"`
 	EmailProvider string `json:"email_provider,omitempty"`
+	Delay         int    `json:"delay,omitempty"` // 每个账号之间的间隔（秒）
 }
 
 // NovitaHandler Novita 注册处理器
@@ -94,10 +95,21 @@ func (h *NovitaHandler) Register(c *gin.Context) {
 
 	resultCh := make(chan *common.RegisterResult, count)
 	semaphore := make(chan struct{}, concurrency)
+	delay := req.Delay
 
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < count; i++ {
+			// 从第 2 个任务开始，等待间隔
+			if i > 0 && delay > 0 {
+				common.LogSend(logCh, fmt.Sprintf("[*] 等待 %d 秒后注册下一个...", delay))
+				select {
+				case <-ctx.Done():
+					break
+				case <-time.After(time.Duration(delay) * time.Second):
+				}
+			}
+
 			select {
 			case <-ctx.Done():
 				break

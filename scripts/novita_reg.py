@@ -159,6 +159,8 @@ async def _do_novita_register(
       try:
         # ──── Step 0: 预热获取 Cloudflare cookie ────
         logf("[*] 开始 Novita 注册流程")
+        if proxy:
+            logf(f"[*] 使用代理: {proxy[:30]}...")
         await client.get("https://novita.ai/user/register")
 
         # ──── Step 1: 注册 ────

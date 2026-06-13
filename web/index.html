@@ -287,7 +287,7 @@
             </div>
             <div class="grid-2">
               <div class="field"><label data-i="concurrency">Concurrency</label><input class="inp" type="number" id="novitaConcurrency" value="1" min="1"></div>
-              <div class="field"></div>
+              <div class="field"><label data-i="regDelay">Delay between accounts (s)</label><input class="inp" type="number" id="novitaDelay" value="0" min="0" placeholder="0"></div>
             </div>
             <div class="actions">
               <button class="btn btn-fill" id="btn-novita-go" onclick="startReg('novita')" data-i="startReg">Start registration</button>
@@ -445,6 +445,7 @@ const i18n={
     updateCred:'Update credentials',pwdMismatch:'Password mismatch',
     terminal:'Terminal',close:'Close',enterCred:'Enter credentials',done:'Done',
     expAccount:'Account',expCred:'Credential',
+    regDelay:'Delay between accounts (s)',
     delSelected:'Delete Selected',clearFiltered:'Clear Filtered',clearAll:'Clear All',
     selectAll:'Select All',selectedCount:'selected',
     confirmDelSelected:'Delete {n} selected items?',
@@ -471,6 +472,7 @@ const i18n={
     updateCred:'更新凭据',pwdMismatch:'密码不匹配',
     terminal:'终端',close:'关闭',enterCred:'请输入凭据',done:'完成',
     expAccount:'账号密码',expCred:'凭据',
+    regDelay:'注册间隔 (秒)',
     delSelected:'删除选中',clearFiltered:'清空筛选',clearAll:'清空全部',
     selectAll:'全选',selectedCount:'已选中',
     confirmDelSelected:'确定删除 {n} 条选中记录？',
@@ -523,11 +525,13 @@ function addLog(t){const d=document.createElement('div');d.className='l '+(t.inc
 /* Reg */
 async function startReg(type){
   const count=parseInt($(type+'Count').value)||1,concurrency=parseInt($(type+'Concurrency').value)||1,prov=$(type+'Mail').value;
+  const delayEl=$(type+'Delay');
+  const delay=delayEl?parseInt(delayEl.value)||0:0;
   $(`btn-${type}-go`).classList.add('hide');$(`btn-${type}-stop`).classList.remove('hide');
-  $('logDrawer').classList.add('open');addLog(`> Starting ${type} ×${count} (concurrency=${concurrency})`);
+  $('logDrawer').classList.add('open');addLog(`> Starting ${type} ×${count} (concurrency=${concurrency}${delay?', delay='+delay+'s':''})`);
   AB[type]=new AbortController();let ok=0,fail=0;
   try{
-    const r=await fetch(`/api/${type}/register`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:JSON.stringify({count,concurrency,proxy:'',email_provider:prov}),signal:AB[type].signal});
+    const r=await fetch(`/api/${type}/register`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:JSON.stringify({count,concurrency,proxy:'',email_provider:prov,delay}),signal:AB[type].signal});
     const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
     while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';let ev='';
       for(const l of ls){if(l.startsWith('event:'))ev=l.slice(6).trim();else if(l.startsWith('data:')){const d=l.slice(5).trim();if(ev==='log')addLog(d);else if(ev==='result'){const o=JSON.parse(d);R.unshift(o);o.ok?ok++:fail++;stats();render()}}}}
