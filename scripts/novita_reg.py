@@ -144,10 +144,24 @@ async def _do_novita_register(
 
     result = {"ok": False, "email": email, "password": password, "api_key": "", "error": ""}
 
-    try:
-        # ──── Step 1: 注册 ────
-        logf("[*] 开始 Novita 注册流程")
+    # 创建一个共享 session 的 client（保持 Cloudflare cookie）
+    transport = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
+    async with httpx.AsyncClient(
+        timeout=30,
+        transport=transport,
+        headers={
+            "User-Agent": NOVITA_HEADERS["User-Agent"],
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+        follow_redirects=True,
+    ) as client:
 
+      try:
+        # ──── Step 0: 预热获取 Cloudflare cookie ────
+        logf("[*] 开始 Novita 注册流程")
+        await client.get("https://novita.ai/user/register")
+
+        # ──── Step 1: 注册 ────
         cf_token = await solve_turnstile(solver_api, logf, proxy)
         if not cf_token:
             result["error"] = "Turnstile 打码失败 (注册)"
@@ -164,13 +178,11 @@ async def _do_novita_register(
             "fromInviteCode": "",
         }
 
-        transport = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
-        async with httpx.AsyncClient(timeout=30, transport=transport) as client:
-            r = await client.post(
-                f"{NOVITA_API}/v1/user/register",
-                json=payload,
-                headers=NOVITA_HEADERS,
-            )
+        r = await client.post(
+            f"{NOVITA_API}/v1/user/register",
+            json=payload,
+            headers=NOVITA_HEADERS,
+        )
 
         if r.status_code != 200:
             err_data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
@@ -196,7 +208,6 @@ async def _do_novita_register(
         if not activate_token:
             result["error"] = "获取激活邮件失败"
             result["ok"] = False
-            # 注册已成功，但激活失败
             logf("[!] 注册已成功但激活失败，账号需手动激活")
             return result
 
@@ -212,17 +223,15 @@ async def _do_novita_register(
             logf("[!] 注册已成功但激活打码失败")
             return result
 
-        transport2 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
-        async with httpx.AsyncClient(timeout=30, transport=transport2) as client:
-            r = await client.post(
-                f"{NOVITA_API}/v1/user/email/verify",
-                json={
-                    "token": activate_token,
-                    "email": email,
-                    "cloudflareToken": cf_token2,
-                },
-                headers=NOVITA_HEADERS,
-            )
+        r = await client.post(
+            f"{NOVITA_API}/v1/user/email/verify",
+            json={
+                "token": activate_token,
+                "email": email,
+                "cloudflareToken": cf_token2,
+            },
+            headers=NOVITA_HEADERS,
+        )
 
         if r.status_code != 200:
             logf(f"[-] 激活失败: HTTP {r.status_code} {r.text[:200]}")
@@ -242,17 +251,15 @@ async def _do_novita_register(
             result["error"] = "Turnstile 打码失败 (登录)"
             return result
 
-        transport3 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
-        async with httpx.AsyncClient(timeout=30, transport=transport3) as client:
-            r = await client.post(
-                f"{NOVITA_API}/v1/user/login",
-                json={
-                    "email": email,
-                    "password": password,
-                    "cloudflareToken": cf_token3,
-                },
-                headers=NOVITA_HEADERS,
-            )
+        r = await client.post(
+            f"{NOVITA_API}/v1/user/login",
+            json={
+                "email": email,
+                "password": password,
+                "cloudflareToken": cf_token3,
+            },
+            headers=NOVITA_HEADERS,
+        )
 
         if r.status_code != 200:
             logf(f"[-] 登录失败: HTTP {r.status_code} {r.text[:200]}")
@@ -280,13 +287,11 @@ async def _do_novita_register(
             "monthlySpend": random.choice(SPENDS),
         }
 
-        transport4 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
-        async with httpx.AsyncClient(timeout=15, transport=transport4) as client:
-            r = await client.post(
-                f"{NOVITA_API}/v1/user/questionnaire",
-                json=questionnaire,
-                headers=auth_headers,
-            )
+        r = await client.post(
+            f"{NOVITA_API}/v1/user/questionnaire",
+            json=questionnaire,
+            headers=auth_headers,
+        )
 
         if r.status_code == 200:
             logf("[+] 问卷提交成功 ($101 额度)")
@@ -295,13 +300,11 @@ async def _do_novita_register(
 
         # ──── Step 6: 创建 API Key ────
         logf("[*] 创建 API Key...")
-        transport5 = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
-        async with httpx.AsyncClient(timeout=15, transport=transport5) as client:
-            r = await client.post(
-                f"{NOVITA_API}/v2/user/key",
-                json={"name": "auto-generated"},
-                headers=auth_headers,
-            )
+        r = await client.post(
+            f"{NOVITA_API}/v2/user/key",
+            json={"name": "auto-generated"},
+            headers=auth_headers,
+        )
 
         if r.status_code != 200:
             logf(f"[-] 创建 API Key 失败: {r.status_code}")
@@ -317,7 +320,7 @@ async def _do_novita_register(
         logf(f"[OK] 注册完成: {email}")
         return result
 
-    except Exception as e:
+      except Exception as e:
         logf(f"[-] 异常: {e}")
         result["error"] = str(e)
         return result
