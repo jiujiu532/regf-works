@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"github.com/grok-fireworks-reg/internal/config"
 )
@@ -123,8 +124,7 @@ func (h *SettingsHandler) UpdateMailSettings(c *gin.Context) {
 
 	// 持久化到 config.yaml
 	if err := h.cfg.Save(); err != nil {
-		// 记录日志但不影响响应（运行时配置已生效）
-		// 可选：返回警告信息
+		log.Error().Err(err).Msg("持久化邮箱配置失败")
 	}
 }
 
@@ -168,7 +168,7 @@ func (h *SettingsHandler) UpdateProxySettings(c *gin.Context) {
 
 	// 持久化到 config.yaml
 	if err := h.cfg.Save(); err != nil {
-		// 记录日志但不影响响应（运行时配置已生效）
+		log.Error().Err(err).Msg("持久化代理配置失败")
 	}
 }
 

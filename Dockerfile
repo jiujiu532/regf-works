@@ -44,11 +44,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# 创建数据和配置目录
+RUN mkdir -p /app/data /app/configs
+
 # 复制 Go 二进制
 COPY --from=builder /bin/reg-server /app/reg-server
 
-# 复制配置文件
+# 复制配置文件（主位置 + 备份，防止挂载整个 configs 目录时消失）
 COPY configs/config.example.yaml /app/configs/config.example.yaml
+COPY configs/config.example.yaml /app/config.example.yaml.bak
 
 # 复制 Python 脚本
 COPY scripts/fireworks_reg.py /app/scripts/fireworks_reg.py

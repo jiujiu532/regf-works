@@ -153,6 +153,7 @@ func Load(cfgFile string) *Config {
 
 // applyEnvOverrides 从环境变量覆盖配置（支持 Docker -e 传参）
 func applyEnvOverrides(cfg *Config) {
+	// 认证
 	if v := os.Getenv("AUTH_USERNAME"); v != "" {
 		cfg.Auth.Username = v
 	}
@@ -162,8 +163,13 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("AUTH_JWT_SECRET"); v != "" {
 		cfg.Auth.JWTSecret = v
 	}
+	// 代理
 	if v := os.Getenv("PROXY_DEFAULT"); v != "" {
 		cfg.Proxy.Default = v
+	}
+	// 邮箱
+	if v := os.Getenv("MAIL_PROVIDER_PRIORITY"); v != "" {
+		cfg.Mail.ProviderPriority = v
 	}
 	if v := os.Getenv("AHEM_BASE_URL"); v != "" {
 		cfg.Mail.Ahem.BaseURL = v
@@ -192,8 +198,40 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("MOEMAIL_DOMAINS"); v != "" {
 		cfg.Mail.MoeMail.Domains = v
 	}
-	if v := os.Getenv("MAIL_PROVIDER_PRIORITY"); v != "" {
-		cfg.Mail.ProviderPriority = v
+	// Turnstile
+	if v := os.Getenv("TURNSTILE_SOLVER_PROXY"); v != "" {
+		cfg.Turnstile.SolverProxy = v
+	}
+	if v := os.Getenv("CAPSOLVER_KEY"); v != "" {
+		cfg.Turnstile.CapSolverKey = v
+	}
+	if v := os.Getenv("YESCAPTCHA_KEY"); v != "" {
+		cfg.Turnstile.YesCaptchaKey = v
+	}
+	// Grok
+	if v := os.Getenv("GROK_SITE_KEY"); v != "" {
+		cfg.Grok.SiteKey = v
+	}
+	if v := os.Getenv("GROK_ACTION_ID"); v != "" {
+		cfg.Grok.ActionID = v
+	}
+	if v := os.Getenv("GROK_STATE_TREE"); v != "" {
+		cfg.Grok.StateTree = v
+	}
+	// Fireworks
+	if v := os.Getenv("FIREWORKS_SERVICE_URL"); v != "" {
+		cfg.Fireworks.ServiceURL = v
+	}
+	// OpenRouter
+	if v := os.Getenv("OPENROUTER_SERVICE_URL"); v != "" {
+		cfg.OpenRouter.ServiceURL = v
+	}
+	if v := os.Getenv("OPENROUTER_SOLVER_TYPE"); v != "" {
+		cfg.OpenRouter.SolverType = v
+	}
+	// Novita
+	if v := os.Getenv("NOVITA_SERVICE_URL"); v != "" {
+		cfg.Novita.ServiceURL = v
 	}
 }
 

@@ -1,9 +1,20 @@
 #!/bin/sh
 set -e
 
-# 如果没有用户配置文件，使用默认配置
+# 确保目录存在（用户可能挂载空目录）
+mkdir -p /app/configs /app/data
+
+# 如果没有用户配置文件，从模板创建
 if [ ! -f /app/configs/config.yaml ]; then
-  cp /app/configs/config.example.yaml /app/configs/config.yaml
+  if [ -f /app/configs/config.example.yaml ]; then
+    cp /app/configs/config.example.yaml /app/configs/config.yaml
+    echo "[*] Created config.yaml from example template"
+  elif [ -f /app/config.example.yaml.bak ]; then
+    cp /app/config.example.yaml.bak /app/configs/config.yaml
+    echo "[*] Created config.yaml from backup template"
+  else
+    echo "[WARN] No config template found, starting with defaults"
+  fi
 fi
 
 # 启动 Turnstile Solver（后台，端口 5072，2 线程）

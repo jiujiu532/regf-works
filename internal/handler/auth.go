@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 	"github.com/grok-fireworks-reg/internal/config"
 	"github.com/grok-fireworks-reg/internal/middleware"
 )
@@ -97,4 +98,9 @@ func (h *AuthHandler) ChangeCredentials(c *gin.Context) {
 		"message": "账号信息已更新，请重新登录",
 		"logout":  true,
 	})
+
+	// 持久化到 config.yaml
+	if err := h.cfg.Save(); err != nil {
+		log.Error().Err(err).Msg("保存凭据失败")
+	}
 }
