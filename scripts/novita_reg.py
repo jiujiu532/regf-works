@@ -24,6 +24,7 @@ import time
 import ssl
 import urllib.request
 import urllib.error
+import urllib.parse
 from threading import Event
 from typing import Optional
 
